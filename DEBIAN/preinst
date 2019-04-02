@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo =========================
+echo =====================================
 echo sourceutility by TheHacker
-echo "Run sourceutility in the Terminal for instructions"
-echo =========================
+echo "Run sourceutility in the Terminal to access the setup menu"
+echo =====================================
