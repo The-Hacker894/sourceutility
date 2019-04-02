@@ -1,0 +1,6 @@
+#!/bin/bash
+
+echo =========================
+echo sourceutility by TheHacker
+echo "Run sourceutility in the Terminal for instructions"
+echo =========================

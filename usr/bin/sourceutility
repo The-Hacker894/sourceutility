@@ -1,0 +1,322 @@
+#!/bin/sh 
+
+clear
+VER="0.2"
+echo "sourceutility v" $VER
+
+## ----------------------------------
+# Step #1: Define variables
+# ----------------------------------
+RED='\033[0;41;30m'
+STD='\033[0;0;39m'
+ROOT="/"
+SOURCEUTILITYDIR="/sourceutility"
+SOURCEUTILITYTMP="/sourceutility/tmp"
+SOURCEBACKUPDIR="$SOURCEUTILITYDIR/backupsources/"
+CYDIASOURCEBACKUP="$SOURCEUTILITYDIR/backupsources/cydia/sources.list"
+SILEOSOURCEBACKUP="$SOURCEUTILITYDIR/backupsources/sileo/sileo.sources"
+CYDIADIR="/private/var/mobile/Library/Caches/com.saurik.Cydia"
+CYDIASOURCES="/private/var/mobile/Library/Caches/com.saurik.Cydia/sources.list"
+SILEODIR="/etc/apt/sources.list.d"
+SILEOSOURCES="/etc/apt/sources.list.d/sileo.sources"
+ 
+# ----------------------------------
+# Step #2: User defined function
+# ----------------------------------
+pause(){
+  read -p "Press [Enter] to continue..." fackEnterKey
+}
+
+coming_soon(){
+   read -p "This feature is coming soon. Press [Enter/Return] to continue" fackEnterKey
+}
+
+init(){
+    if [ ! -w $ROOT ]
+    then
+	# Root directory is not writeable
+        echo "${RED}Cannot write to root directory. Try running as root?${STD}"
+        exit 1;
+    fi
+
+    if [ ! -d $SOURCEUTILITYDIR ]
+    then
+        mkdir $SOURCEUTILITYDIR
+    fi
+    
+}
+
+delete_source_backups(){
+    if [ ! -w $ROOT ]
+    then
+	# Root directory is not writeable
+        echo "${RED}Cannot write to root directory. Try running as root?${STD}"
+        exit 1;
+    fi
+    if [ ! -w $SOURCEUTILITYDIR ]
+    then
+	# Root directory is not writeable
+        echo "${RED}Cannot write to ${SOURCEUTILITYDIR}. Try running as root?${STD}"
+        exit 1;
+    fi
+    cd $SOURCEUTILITYDIR
+    find . -name "*.zip" -type f -delete
+    echo "Finished deleting source backups!"
+    pause
+}
+
+backup_sources() {
+    # sourcebackup by TheHacker 
+DATE=$(date +%m-%d-%Y)
+SOURCEBACKUPZIP="$SOURCEUTILITYDIR/backupsources-$DATE.zip"
+CYDIASOURCEBACKUPDIR="$SOURCEUTILITYDIR/backupsources/cydia"
+SILEOSOURCEBACKUPDIR="$SOURCEUTILITYDIR/backupsources/sileo"
+SILEOBACKEDUP=false
+CYDIABACKEDUP=false
+BACKUPCYDIA=true
+BACKUPSILEO=true
+
+init
+
+if [ ! -w $ROOT ]
+then
+	# Root directory is not writeable
+	echo "${RED}Cannot write to root directory. Try running as root?${STD}"
+	exit 1;
+fi
+
+
+if [ ! -d  $SOURCEBACKUPDIR ]
+then
+
+mkdir $SOURCEBACKUPDIR
+
+# If the Source Backup Directory doesn't already exist, create one
+echo "Created backup directory!"		
+fi
+
+echo "Checking for Cydia Sources..."
+
+{
+
+if [ $BACKUPCYDIA ]
+then
+	if [ -d $CYDIADIR ]
+	then
+		# Cydia directory exists
+		if [ -r $CYDIASOURCES ]
+		then
+			# Cydia sources are readable
+			if [ ! -d $CYDIASOURCEBACKUPDIR ]
+			then
+			
+			mkdir $CYDIASOURCEBACKUPDIR
+			
+			# If the Cydia Source Backup Directory doesn't already exist, create one
+			echo "Found Cydia Sources and created backup directory!"
+			fi
+			
+			echo "Attempting to backup Cydia Sources..."
+			cp -r $CYDIASOURCES $CYDIASOURCEBACKUPDIR
+			echo "Backed up Cydia Sources to " $CYDIASOURCEBACKUPDIR
+			CYDIABACKEDUP=true
+		else
+			echo "Cannot read Cydia Sources!"
+			
+		fi	
+		
+	else
+		echo $CYDIADIR " not found!"
+		
+	fi
+else 
+	CYDIABACKEDUP=false
+fi
+} || {
+    echo "${RED}An exception occurred... Try running as root?${STD}"
+}
+
+echo "Checking for Sileo Source Directory..."
+if [ $BACKUPSILEO ]
+then
+	if [ -d $SILEODIR ]
+	then
+		# Sileo source directory exists
+		if [ -r $SILEOSOURCES ]
+		then
+			if [ ! -d $SILEOSOURCEBACKUPDIR ]
+			then
+			
+			mkdir $SILEOSOURCEBACKUPDIR
+			
+			# If Sileo Source Backup Directory doesn't already exist, create one
+			echo "Found Sileo Sources and created backup directory!"
+			fi
+			
+			echo "Attempting to backup Sileo Sources"
+			cp -r $SILEOSOURCES $SILEOSOURCEBACKUPDIR
+			echo "Backed up Sileo Sources to " $SILEOSOURCEBACKUPDIR
+			SILEOBACKEDUP=true
+		else
+			echo "Cannot read Sileo Sources!"
+			
+		fi
+	else 
+		echo $SILEODIR " not found!"
+		
+	fi
+else 
+	SILEOBACKEDUP=false
+fi
+
+
+
+zip -r $SOURCEBACKUPZIP $SOURCEBACKUPDIR 
+
+echo "Finished backing up sources! You can find the archive at " $SOURCEBACKUPZIP
+pause
+
+}
+
+restore_sources() {
+	if [ ! -w $ROOT ]
+	then
+		# Root directory is not writeable
+		echo "${RED}Cannot write to root directory. Try running as root?${STD}"
+		exit 1;
+	fi
+
+    if [ ! -d $SOURCEUTILITYTMP ]
+    then
+        mkdir $SOURCEUTILITYTMP
+    fi
+
+	if [ -w $SOURCEBACKUPDIR ]
+	then
+		echo "Found Backup!"
+        
+        restore() {
+            ls /sourceutility/backupsources*.zip
+            echo Enter the date of which backup you would like to restore:
+                read backupDate
+
+                BACKUPTOUNZIP="$SOURCEUTILITYDIR/backupsources-$backupDate.zip"
+
+            if [ -w $BACKUPTOUNZIP ]
+            then
+                echo "Unzipping..."
+                unzip -o ${BACKUPTOUNZIP}
+                echo "Unzipped!"
+
+                if [ -w $CYDIASOURCEBACKUP ]
+                then
+                    echo "Cydia Source backup found!" && sleep 1
+                    echo "Restoring..."
+                    mv $CYDIASOURCEBACKUP $CYDIADIR
+                    echo "Restored Cydia Sources!"
+                else
+                    echo "No Cydia Source Backup!"
+                fi
+                if [ -w $SILEOSOURCEBACKUP ]
+                then
+                    echo "Sileo Source backup found!" && sleep 1
+                    echo "Restoring..."
+                    mv $SILEOSOURCEBACKUP $SILEODIR
+                    echo "Restored Sileo Sources!"
+                else
+                    echo "No Sileo Source Backup!"
+                fi
+            rm -r $SOURCEBACKUPDIR
+            else
+                echo "Cannot write to ${BACKUPTOUNZIP}. Does it exist?"
+            fi
+            
+        }
+        restore
+	fi
+
+	pause
+}
+
+sync_cydia_to_sileo() {
+    coming_soon
+}
+sync_sileo_to_cydia() {
+    coming_soon
+}
+
+respring() {
+    echo "Do ${RED}NOT${STD} close terminate this script until your iOS Device has resprung."
+    echo "Respringing..."
+    ldrestart
+}
+
+
+# function to display menus
+show_menus() {
+	clear
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"	
+	echo " sourceutility v0.2 by TheHacker "
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	echo "1. Backup Cydia and/or Sileo Sources"
+    echo "2. Restore Cydia and/or Sileo Sources"
+    echo "3. Delete Cydia/Sileo Source Backups"
+	echo "4. Sync Cydia Sources to Sileo"
+    echo "5. Sync Sileo Sources to Cydia"
+    echo "6. Respring"
+	echo "7. Exit"
+}
+
+read_options(){
+	local choice
+	read -p "Enter choice [ 1 - 7] " choice
+	case $choice in
+		1) { 
+            backup_sources 
+            } || { 
+                exit 1;
+                } ;;
+        2) {
+            restore_sources
+            } || {
+                exit 1;
+            } ;;
+        3) {
+            delete_source_backups
+            } || {
+                exit 1;
+            } ;;
+		4) {
+            sync_cydia_to_sileo
+            } || {
+                exit 1;
+            } ;;
+		5) {
+            sync_sileo_to_cydia
+            } || {
+                exit 1;
+            } ;;
+        6) {
+            respring 
+        } || {
+            echo -e "${RED}Could not respring.${STD} Try running as root?" && sleep 2
+        } ;;    
+        7) exit 0;;
+		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
+	esac
+}
+ 
+# ----------------------------------------------
+# Step #3: Trap CTRL+C, CTRL+Z and quit singles
+# ----------------------------------------------
+trap '' SIGINT SIGQUIT SIGTSTP
+ 
+# -----------------------------------
+# Step #4: Main logic - infinite loop
+# ------------------------------------
+while true
+do
+ 
+	show_menus
+	read_options
+done

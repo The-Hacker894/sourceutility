@@ -1,0 +1,11 @@
+Package: xyz.skylarmccauley.sourceutility
+Name: sourceutility
+Version: 0.2
+Depends: firmware (>= 9.0), findutils
+Architecture: iphoneos-arm
+Description: The all-in-one utility for managing your already added Cydia and Sileo sources.
+Maintainer: TheHacker
+Homepage: https://skylarmccauley.xyz/
+Depiction: http://skylarmccauley.xyz/hacked-repo/depictions/?p=xyz.skylarmccauley.sourceutility
+Author: TheHacker
+Section: Utilities
