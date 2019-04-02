@@ -178,6 +178,19 @@ pause
 
 }
 
+purge_ds_store() {
+    if [ ! -w $ROOT ]
+    then
+        # Root directory is not writeable
+        echo "${RED}Cannot write to root directory. Try running as root?${STD}"
+        exit 1;
+    fi
+    echo "Looking for .DS_STORE files to purge..."
+    cd /
+    find . -name '.DS_Store' -delete
+    echo "Finished pruging .DS_STORE files!"
+    pause
+}
 restore_sources() {
 	if [ ! -w $ROOT ]
 	then
@@ -264,8 +277,9 @@ show_menus() {
     echo "3. Delete Cydia/Sileo Source Backups"
 	echo "4. Sync Cydia Sources to Sileo"
     echo "5. Sync Sileo Sources to Cydia"
-    echo "6. Respring"
-	echo "7. Exit"
+    echo "6. Purge .DS_Store files"
+    echo "7. Respring"
+	echo "8. Exit"
 }
 
 read_options(){
@@ -298,11 +312,16 @@ read_options(){
                 exit 1;
             } ;;
         6) {
+            purge_ds_store
+        } || {
+            exit 1;
+        }
+        7) {
             respring 
         } || {
             echo -e "${RED}Could not respring.${STD} Try running as root?" && sleep 2
         } ;;    
-        7) exit 0;;
+        8) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
 }
