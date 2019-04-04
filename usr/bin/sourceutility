@@ -126,7 +126,7 @@ then
 		fi	
 		
 	else
-		echo $CYDIADIR " not found!"
+		echo $CYDIADIR "Not found!"
 		
 	fi
 else 
@@ -162,7 +162,7 @@ then
 			
 		fi
 	else 
-		echo $SILEODIR " not found!"
+		echo $SILEODIR "Not found!"
 		
 	fi
 else 
@@ -188,7 +188,7 @@ purge_ds_store() {
     echo "Looking for .DS_STORE files to purge..."
     cd /
     find . -name '.DS_Store' -delete
-    echo "Finished pruging .DS_STORE files!"
+    echo "Finished purging .DS_STORE files!"
     pause
 }
 restore_sources() {
@@ -237,7 +237,7 @@ restore_sources() {
                     mv $SILEOSOURCEBACKUP $SILEODIR
                     echo "Restored Sileo Sources!"
                 else
-                    echo "No Sileo Source Backup!"
+                    echo "No Sileo Source Backup found!"
                 fi
             rm -r $SOURCEBACKUPDIR
             else
@@ -259,7 +259,7 @@ sync_sileo_to_cydia() {
 }
 
 respring() {
-    echo "Do ${RED}NOT${STD} close terminate this script until your iOS Device has resprung."
+    echo "Do ${RED}NOT${STD} close or terminate this script until your iOS Device has resprung."
     echo "Respringing..."
     ldrestart
     exit 0;
