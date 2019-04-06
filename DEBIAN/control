@@ -1,6 +1,6 @@
 Package: xyz.skylarmccauley.sourceutility
 Name: sourceutility
-Version: 0.4-2
+Version: 0.4-3
 Depends: firmware (>= 9.0), findutils
 Architecture: iphoneos-arm
 Conflicts: xyz.skylarmccauley.sourcebackup
