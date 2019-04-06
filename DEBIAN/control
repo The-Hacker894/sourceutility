@@ -1,10 +1,10 @@
 Package: xyz.skylarmccauley.sourceutility
 Name: sourceutility
-Version: 0.4-1
+Version: 0.4-2
 Depends: firmware (>= 9.0), findutils
 Architecture: iphoneos-arm
 Conflicts: xyz.skylarmccauley.sourcebackup
-Description: The all-in-one utility for managing your already added Cydia and Sileo sources.
+Description: The all-in-one utility for managing your already added Cydia and Sileo sources. Run sourceutility in MobileTerminal, NewTerm2, or over SSH.
 Maintainer: TheHacker
 Homepage: https://skylarmccauley.xyz/
 Depiction: http://skylarmccauley.xyz/hacked-repo/depic/xyz.skylarmccauley.sourceutility/
