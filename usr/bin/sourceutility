@@ -1,56 +1,82 @@
 #!/bin/sh 
 
 clear
-VER="0.3"
+VER="0.4"
 echo "sourceutility v" $VER
 
 ## ----------------------------------
 # Step #1: Define variables
 # ----------------------------------
-RED='\033[0;41;30m'
+RED='\033[31m'
 STD='\033[0;0;39m'
 ROOT="/"
 SOURCEUTILITYDIR="/sourceutility"
 SOURCEUTILITYTMP="/sourceutility/tmp"
-SOURCEBACKUPDIR="$SOURCEUTILITYDIR/backupsources/"
-CYDIASOURCEBACKUPDIR="$SOURCEBACKUPDIR/cydia"
-SILEOSOURCEBACKUPDIR="$SOURCEBACKUPDIR/sileo"
-CYDIASOURCEBACKUP="$CYDIASOURCEBACKUPDIR/com.saurik.Cydia.plist"
-SILEOSOURCEBACKUP="$SILEOSOURCEBACKUPDIR/sileo.sources"
-CYDIALISTS="/private/var/mobile/Library/Caches/com.saurik.Cydia/lists"
-CYDIACHACHESTATE="/private/var/mobile/Library/Caches/com.saurik.Cydia/CacheState.plist"
-CYDIACACHE="/private/var/mobile/Library/Caches/com.saurik.Cydia"
-CYDIASOURCESCACHE="/private/var/mobile/Library/Caches/com.saurik.Cydia/sources.list"
-CYDIADIR="/private/var/mobile/Library/Preferences"
-CYDIASOURCES="/private/var/mobile/Library/Preferences/com.saurik.Cydia.plist"
-SILEODIR="/etc/apt/sources.list.d"
-SILEOSOURCES="/etc/apt/sources.list.d/sileo.sources"
+
+SOURCEBACKUPDIR="$SOURCEUTILITYDIR/backups"
+SBDRELATIVE="./backups"
+
+SOURCELISTS="/etc/apt/sources.list.d" # Will need to copy everything from this directory to complete backup
+SOURCELISTSBACKUPDIR="$SOURCEBACKUPDIR/sourcelists"
+
+CYDIAPREFNAME="com.saurik.Cydia.plist"
+PREFSDIR="/private/var/mobile/Library/Preferences"
+CYDIAPREFS="$PREFSDIR/$CYDIAPREFNAME"
+CYDIAPREFSBACKUPDIR="$SOURCEBACKUPDIR/cydiaprefs"
+CYDIAPREFSBACKUP="$CYDIAPREFSBACKUPDIR/$CYDIAPREFNAME"
+
+CYDIACACHEDIR="/private/var/mobile/Library/Caches/com.saurik.Cydia"
+CYDIASOURCESCACHE="$CYDIACACHEDIR/sources.list"
+CYDIALISTCACHE="$CYDIACACHEDIR/lists"
+CYDIACACHEBACKUPDIR="$SOURCEBACKUPDIR/cache"
+
 APTDIR="/private/var/lib/apt"
 LOCKFILE="/private/var/lib/apt/lock"
 MORECYDIACACHE="/private/var/mobile/Containers/Data/Application/DBA6B427-BEBD-4C95-9F75-BF4830276BF3/Library/Caches/com.saurik.Cydia"
+
+
+DATE=$(date +%m-%d-%Y)
+SOURCEBACKUPZIP="$SOURCEUTILITYDIR/sourcebackup-$DATE.zip"
+SBZRELATIVE="./sourcebackup-$DATE.zip"
+
 # ----------------------------------
 # Step #2: User defined function
 # ----------------------------------
-pause(){
-  read -p "Press [Enter] to continue..." fackEnterKey
-}
+pause(){ 
+    read -p "Press [Enter] to continue..." fackEnterKey 
+    }
 
-coming_soon(){
-   read -p "This feature is coming soon. Press [Enter/Return] to continue" fackEnterKey
-}
+coming_soon(){ 
+    read -p "This feature is coming soon. Press [Enter/Return] to continue" fackEnterKey 
+    }
 
 init(){
     if [ ! -w $ROOT ]
     then
 	# Root directory is not writeable
-        echo "${RED}Cannot write to root directory. Try running as root?${STD}"
+        echo -e "${RED}Cannot write to root directory. Try running as root?${STD}"
         pause
         start_menu
     fi
 
+    # If the Source Utility Directory doesn't already exist, create one
     if [ ! -d $SOURCEUTILITYDIR ]
     then
         mkdir $SOURCEUTILITYDIR
+        echo "Created sourceutility directory!"
+    fi
+
+    # If the Source Backup Directory doesn't already exist, create one
+    if [ ! -d  $SOURCEBACKUPDIR ]
+    then
+        mkdir $SOURCEBACKUPDIR
+        echo "Created backup directory!" 
+    fi
+
+    if [ ! -d $SOURCEUTILITYTMP ]
+    then
+        mkdir $SOURCEUTILITYTMP
+        echo "Created temp directory!"
     fi
     
 }
@@ -58,12 +84,13 @@ init(){
 update_sources() {
     echo "Updating source lists. This may take a while..." && sleep 2
     apt-get update
+    start_menu
 }
-remove_cydia_lists_sources() {
+remove_lists_sources() {
     echo ""
     echo ""
     echo ""
-    echo "I had some issues during testing related to deleting and restoring sources and lists within Cydia. If you want to try this for yourself, go ahead."
+    echo -e "This is a dangerous procedure. You ${RED}will lose all Cydia & Sileo sources/lists${STD} after executing this."
     read -p "Are you sure you want to continue? [Y/N] " -n 1 -r
                         echo    # (optional) move to a new line
                         if [[ $REPLY =~ ^[Yy]$ ]]
@@ -72,25 +99,27 @@ remove_cydia_lists_sources() {
                                 echo    # (optional) move to a new line
                                 if [[ $REPLY =~ ^[Yy]$ ]]
                                 then
-                                    echo "Type 'leavemealone' (ofc w/ out the quotes) and press enter to proceed:"
+                                    echo -e "Type '${RED}leavemealone${STD}' (ofc w/ out the quotes) and press enter to proceed:"
                                         read msg
 
                                         if [ $msg = "leavemealone" ]
                                         then
-                                            echo "Deleting target sources..."
-                                            rm -r $CYDIASOURCES
-                                            echo "Deleting Cydia cache..."
-                                            rm -r $CYDIASOURCESCACHE
-                                            rm -r $MORECYDIACACHE
-                                            echo "Deleting Cydia lists..."
-                                            rm -r $CYDIALISTS
-                                            echo "Deleting Cydia lists.bak ..."
-                                            rm -r "${CYDIALISTS}.bak"
-                                            echo "Deleting Cydia Cache State..."
-                                            rm -r $CYDIACHACHESTATE
-                                            echo "Deleting contents of apt directory..."
+                                            echo -e "${RED}Deleting target sources..."
+                                            rm -rf $CYDIASOURCES
+                                            echo -e "${RED}Deleting Cydia cache..."
+                                            rm -rf $CYDIASOURCESCACHE
+                                            rm -rf $MORECYDIACACHE
+                                            echo -e "${RED}Deleting Cydia lists..."
+                                            rm -rf $CYDIALISTS
+                                            echo -e "${RED}Deleting Cydia lists.bak ..."
+                                            rm -rf "${CYDIALISTS}.bak"
+                                            echo -e "${RED}Deleting Cydia Preferences..."
+                                            rm -rf $CYDIAPREFS
+                                            echo -e "${RED}Deleting Sileo sources..."
+                                            rm -rf $SOURCELISTS
+                                            echo -e "${RED}Deleting contents of apt directory... (excluding the lock file)"
                                             find $APTDIR -type f -not -name $LOCKFILE
-                                            echo "Finished Purging Cydia Lists and Sources!"
+                                            echo -e "${RED}Finished Purging Cydia Lists and Sources!${STD}"
                                         else
                                             echo "You didn't type 'leavemealone' correctly..."
                                             pause
@@ -108,147 +137,199 @@ delete_source_backups(){
     if [ ! -w $ROOT ]
     then
 	# Root directory is not writeable
-        echo "${RED}Cannot write to root directory. Try running as root?${STD}"
+        echo -e "${RED}Cannot write to root directory. Try running as root?${STD}"
         pause
         start_menu
     fi
     if [ ! -w $SOURCEUTILITYDIR ]
     then
 	# Root directory is not writeable
-        echo "${RED}Cannot write to ${SOURCEUTILITYDIR}. Try running as root?${STD}"
+        echo -e "${RED}Cannot write to ${SOURCEUTILITYDIR}. Try running as root?${STD}"
         pause
         start_menu
     fi
     cd $SOURCEUTILITYDIR
     find . -name "*.zip" -type f -delete
+    if [ -d $SOURCEBACKUPDIR ]
+    then
+        rm -rfv $SOURCEBACKUPDIR
+    fi
+    if [ -d "$SOURCEUTILITY/sourceutility" ]
+    then
+        rm -rfv "$SOURCEUTILITY/sourceutility"
+    fi
+    if [ -d "$SOURCEUTILITY/backupsources" ]
+    then
+        rm -rfv "$SOURCEUTILITY/backsources"
+    fi
+
     echo "Finished deleting source backups!"
     pause
 }
 
 backup_sources() {
-    # sourcebackup by TheHacker 
-DATE=$(date +%m-%d-%Y)
-SOURCEBACKUPZIP="$SOURCEUTILITYDIR/backupsources-$DATE.zip"
-SOURCECACHEZIP="$SOURCEUTILITYDIR/backupsources-cache-$DATE.zip"
-
-SILEOBACKEDUP=false
-CYDIABACKEDUP=false
-BACKUPCYDIA=true
-BACKUPSILEO=true
+    # sourcebackup by TheHacker
 
 init
 
-if [ ! -w $ROOT ]
+echo -e "It is important that you do ${RED}NOT${STD} terminate this script while you are backing up your sources."
+        pause
+
+if [ -w $SOURCEBACKUPZIP ]
 then
-	# Root directory is not writeable
-	echo "${RED}Cannot write to root directory. Try running as root?${STD}"
-	pause
-    start_menu
+    echo -e "${RED}Backup from earlier today detected!${STD}"
+    read -p "Would you like to remove this earlier backup? [Y/N] " -n 1 -r
+        echo    # (optional) move to a new line
+        if [[ $REPLY =~ ^[Yy]$ ]]
+        then
+        rm -rfv $SOURCEBACKUPZIP
+        else
+        echo "The older backup must be removed to continue. Returning to Start Menu..."
+        pause
+        start_menu
+        fi
 fi
 
-
-if [ ! -d  $SOURCEBACKUPDIR ]
-then
-
-mkdir $SOURCEBACKUPDIR
-
-# If the Source Backup Directory doesn't already exist, create one
-echo "Created backup directory!"		
-fi
-
-echo "Checking for Cydia Sources..."
+echo "Checking read permissions needed for backup..."
 
 {
 
-if [ $BACKUPCYDIA ]
+if [ ! -r $CYDIAPREFS ]
 then
-	if [ -d $CYDIADIR ]
-	then
-		# Cydia directory exists
-		if [ -r $CYDIASOURCES ]
-		then
-			# Cydia sources are readable
-			if [ ! -d $CYDIASOURCEBACKUPDIR ]
-			then
-			
-			mkdir $CYDIASOURCEBACKUPDIR
-			
-			# If the Cydia Source Backup Directory doesn't already exist, create one
-			echo "Found Cydia Sources and created backup directory!"
-			fi
-			
-			echo "Attempting to backup Cydia Sources..."
-			cp -r $CYDIASOURCES $CYDIASOURCEBACKUPDIR
-			echo "Backed up Cydia Sources to " $CYDIASOURCEBACKUPDIR
-			CYDIABACKEDUP=true
-            echo ""
-            echo ""
-            echo ""
-            echo "Restoring Cydia Sources has been disabled due to multiple issues regarding cache files."
-            pause
-		else
-			echo "Cannot read Cydia Sources!"
-			
-		fi	
-		
-	else
-		echo $CYDIADIR " not found!"
-		
-	fi
-else 
-	CYDIABACKEDUP=false
+    echo "Cannot read $CYDIAPREFS. Try running as root?"
+    pause
+    start_menu
 fi
+if [ ! -r $CYDIACACHEDIR ]
+then
+    echo "Cannot read $CYDIACACHEDIR. Try running as root?"
+    pause
+    start_menu
+fi
+if [ ! -r $SOURCELISTS ]
+then
+    echo "Cannot read $SOURCELISTS. Try running as root?"
+    pause
+    start_menu
+fi
+
+echo "Read permissions seem to be okay! Continuing with backup..." && sleep 2
+echo "Removing old backup directory..."
+rm -rfv $SOURCEBACKUPDIR
+## Creating dirs for backing up files
+echo "Creating new backup directory"
+mkdir $SOURCEBACKUPDIR
+echo "Creating backup directory for Cydia Preferences... (Sources are stored here)"
+mkdir $CYDIAPREFSBACKUPDIR
+echo "Creating backup directory for Cydia Cache... (Sources are also stored here)"
+mkdir $CYDIACACHEBACKUPDIR
+echo "Creating backup directory for Source Lists... (Sileo also stores its sources here)"
+mkdir $SOURCELISTSBACKUPDIR
+echo "Successfully created backup directories!" && sleep 2
+## Copying files to backup dirs
+echo "Copying Cydia Preferences to $CYDIAPREFSBACKUPDIR..."
+cp -rfv $CYDIAPREFS $CYDIAPREFSBACKUPDIR
+echo "Copying Cydia Cache to $CYDIACACHEBACKUPDIR..."
+cp -rfv $CYDIASOURCESCACHE $CYDIACACHEBACKUPDIR
+cp -rfv $CYDIALISTCACHE $CYDIACACHEBACKUPDIR
+echo "Copying Source Lists to $SOURCELISTSBACKUPDIR..."
+cp -afv "$SOURCELISTS/." "$SOURCELISTSBACKUPDIR/"
+echo "Successfully copied files to backup directories!" && sleep 2
+cd $SOURCEUTILITYDIR
+echo "Zipping backup files..."
+zip -r $SBZRELATIVE $SBDRELATIVE
+cd /
+echo "Cleaning up..."
+rm -rfv $SOURCEBACKUPDIR
 } || {
-    echo "${RED}An exception occurred... Try running as root?${STD}"
+    echo -e "${RED}An exception occurred... Try running as root?${STD}"
 }
-
-echo "Checking for Sileo Source Directory..."
-if [ $BACKUPSILEO ]
-then
-	if [ -d $SILEODIR ]
-	then
-		# Sileo source directory exists
-		if [ -r $SILEOSOURCES ]
-		then
-			if [ ! -d $SILEOSOURCEBACKUPDIR ]
-			then
-			
-			mkdir $SILEOSOURCEBACKUPDIR
-			
-			# If Sileo Source Backup Directory doesn't already exist, create one
-			echo "Found Sileo Sources and created backup directory!"
-			fi
-			
-			echo "Attempting to backup Sileo Sources"
-			cp -r $SILEOSOURCES $SILEOSOURCEBACKUPDIR
-			echo "Backed up Sileo Sources to " $SILEOSOURCEBACKUPDIR
-			SILEOBACKEDUP=true
-		else
-			echo "Cannot read Sileo Sources!"
-			
-		fi
-	else 
-		echo $SILEODIR " not found!"
-		
-	fi
-else 
-	SILEOBACKEDUP=false
-fi
-
-
-
-zip -r $SOURCEBACKUPZIP $SOURCEBACKUPDIR 
 
 echo "Finished backing up sources! You can find the archive at " $SOURCEBACKUPZIP
 pause
-
+start_menu
 }
 
+restore_sources() {
+    #sourcerestore by TheHacker
+        init
+        echo -e "It is important that you do ${RED}NOT${STD} terminate this script while you are restoring your backup."
+        pause
+        restore() {
+            cd $SOURCEUTILITYDIR
+            ls ./sourcebackup*.zip
+            echo "Enter the date of which backup you would like to restore: (Type 'exit' to leave.)"
+                read backupDate
+
+                BACKUPTOUNZIP="$SOURCEUTILITYDIR/sourcebackup-$backupDate.zip"
+                BTURELATIVE="./sourcebackup-$backupDate.zip"
+
+            if [[ "$backupDate" = 'exit' || "$backupDate" = 'leave' || "$backupDate" = "cancel" || "$backupDate" = "stop" ]]
+            then
+            start_menu
+            fi
+
+            if [ -w $BTURELATIVE ]
+            then
+                
+                echo "Copying Backup to $SOURCEUTILITYTMP for contingency..."
+                cp -fv $BTURELATIVE $SOURCEUTILITYTMP
+                echo "Unzipping..."
+                unzip -o ${BTURELATIVE}
+                echo "Unzipped!"
+                echo "Checking r/w permissions needed for restore..."
+                if [ ! -r $CYDIAPREFS ]
+                then
+                    echo "Cannot read $CYDIAPREFS. Try running as root?"
+                    pause
+                    start_menu
+                fi
+                if [ ! -r $CYDIACACHEDIR ]
+                then
+                    echo "Cannot read $CYDIACACHEDIR. Try running as root?"
+                    pause
+                    start_menu
+                fi
+                if [ ! -r $SOURCELISTS ]
+                then
+                    echo "Cannot read $SOURCELISTS. Try running as root?"
+                    pause
+                    start_menu
+                fi
+                echo "R/W permissions seem to be okay! Continuing with restore..." && sleep 2
+                ## Copying backup files to their respective locations
+                echo "Copying Cydia Preferences Backup to $PREFSDIR"
+                cp -fv $CYDIAPREFSBACKUP $PREFSDIR
+                echo "Copying Cydia Cache Backup to $CYDIACACHEDIR"
+                cp -afv "$CYDIACACHEBACKUPDIR/." "$CYDIACACHEDIR/"
+                echo "Copying Source List Backup to $SOURCELISTS"
+                cp -afv "$SOURCELISTSBACKUPDIR/." "$SOURCELISTS/"
+                echo "Successfully copied backup files to their respective locations!"
+                rm -rfv $SOURCEBACKUPDIR
+                read -p "Would you like to delete the $BTURELATIVE? [Y/N] " -n 1 -r
+                    echo    # (optional) move to a new line
+                    if [[ $REPLY =~ ^[Yy]$ ]]
+                    then
+                        rm -fv $BTURELATIVE
+                    fi
+                echo "If the backup did not restore correctly, you can open the zip file in $SOURCEUTILITYTMP"
+                cd /
+            else 
+            echo "Could not read $BTURELATIVE. Does it exist?"
+            pause
+            start_menu
+            fi
+        }
+        restore
+    
+	pause
+    start_menu
+}
 purge_ds_store() {
     if [ ! -w $ROOT ]
     then
         # Root directory is not writeable
-        echo "${RED}Cannot write to root directory. Try running as root?${STD}"
+        echo -e "${RED}Cannot write to root directory. Try running as root?${STD}"
         pause
         start_menu
     fi
@@ -258,99 +339,6 @@ purge_ds_store() {
     echo "Finished pruging .DS_STORE files!"
     pause
 }
-restore_sources() {
-	if [ ! -w $ROOT ]
-	then
-		# Root directory is not writeable
-		echo "${RED}Cannot write to root directory. Try running as root?${STD}"
-		pause
-        start_menu
-	fi
-    if [ -d $SOURCEUTILITYTMP ]
-    then
-        rm -r $SOURCEUTILITYTMP
-    fi
-    if [ ! -d $SOURCEUTILITYTMP ]
-    then
-        mkdir $SOURCEUTILITYTMP
-    fi
-
-	if [ -w $SOURCEUTILITYDIR ]
-	then
-
-        restore() {
-            ls /sourceutility/backupsources*.zip
-            echo "Enter the date of which backup you would like to restore: (Type 'exit' to leave.)"
-                read backupDate
-
-                BACKUPTOUNZIP="$SOURCEUTILITYDIR/backupsources-$backupDate.zip"
-            if [[ "$backupDate" = 'exit' || "$backupDate" = 'leave' || "$backupDate" = "cancel" || "$backupDate" = "stop" ]]
-            then
-            start_menus
-            fi
-            if [ -w $BACKUPTOUNZIP ]
-            then
-                echo "Copying Backup to $SOURCEUTILITYTMP for contingency..."
-                cp -r $BACKUPTOUNZIP $SOURCEUTILITYTMP
-                echo "Unzipping..."
-                unzip -o ${BACKUPTOUNZIP}
-                echo "Unzipped!"
-
-                cydia() {
-                    if [ -w $CYDIASOURCEBACKUP ]
-                then
-                    echo "Cydia Source backup found!" && sleep 1
-                    echo "To restore a Cydia Backup, the target sources at ${CYDIASOURCES} must be temporarily deleted."
-                    read -p "Are you sure you want continue? [Y/N] " -n 1 -r
-                        echo    # (optional) move to a new line
-                        if [[ $REPLY =~ ^[Yy]$ ]]
-                        then
-                            remove_cydia_lists_sources #prob. wanna remove this
-                            echo "Restoring..."
-                            mv $CYDIASOURCEBACKUP $CYDIADIR
-                            echo "Restored Cydia sources!" && sleep 1
-                            
-                            echo "Finished Cydia source restore process!"
-                        else
-                            start_menu
-                        fi
-
-                    
-                else
-                    echo "No Cydia Source Backup!"
-                fi
-                }
-                echo ""
-                echo ""
-                echo ""
-                
-                echo "Cydia Source Restoration has been disabled."
-                pause
-                if [ -w $SILEOSOURCEBACKUP ]
-                then
-                    echo "Sileo Source backup found!" && sleep 1
-                    echo "Restoring..."
-                    mv $SILEOSOURCEBACKUP $SILEODIR
-                    echo "Restored Sileo Sources!"
-                else
-                    echo "No Sileo Source Backup!"
-                fi
-            rm -r $SOURCEBACKUPDIR
-            else
-                echo "Cannot write to ${BACKUPTOUNZIP}. Does it exist?"
-            fi
-            
-        }
-        restore
-    else
-    echo "Cannot write to ${SOURCEUTILITYDIR}. Try running as root?"
-    pause
-    start_menu
-	fi
-
-	pause
-}
-
 sync_cydia_to_sileo() {
     coming_soon
 }
@@ -369,6 +357,105 @@ kill_springboard() {
     killall SpringBoard
     exit 0;
 }
+run_reboot() {
+    echo -e "You are about to reboot your iOS Device. If you are runnning anything ${RED}newer than iOS 9.1${STD}, you are likely using an semi-tethered jailbreak. This means that after a reboot, you will ${RED}temporarily lose your jailbreak${STD}."
+    read -p "Are you sure you want to continue? [Y/N] " -n 1 -r
+        echo    # (optional) move to a new line
+        if [[ $REPLY =~ ^[Yy]$ ]]
+        then
+            reboot
+        else
+        start_menu
+        fi
+}
+convert_legacy_backups() {
+    echo -e "Legacy Backups are backups made with sourcebackup v0.1 and sourceutility <=0.2-2."
+    pause
+    echo -e "Legacy Backups, although no longer supported, can still be made by installing sourceutility v0.2-2 or by running sourceutility-legacy ."
+    pause
+    clear
+    echo -e "These backups go by the nomenclature 'backupsources-MM-DD-YYYY.zip' and are usually stored in '/sourceutility'"
+    pause
+    echo -e "Legacy backups do not include all of the necessary files needed for a backup. This means the backup will be incomplete."
+    pause
+    read -p "If you wish to continue please press [Y/y] " -n 1 -r
+        echo    # (optional) move to a new line
+        if [[ $REPLY =~ ^[Yy]$ ]]
+        then
+        # Start of legacy conversion process
+
+            if [ -d $SOURCEBACKUPDIR ]
+            then
+                read -p $SOURCEBACKUPDIR " already exists. Would you like to delete it? [Y/n] " -n 1 -r
+                    echo    # (optional) move to a new line
+                    if [[ $REPLY =~ ^[Yy]$ ]]
+                    then
+                        rm -rfv $SOURCEBACKUPDIR
+                    else
+                    echo "The backup must be deleted to continue!"
+                    pause
+                    start_menu
+                    fi
+            fi
+
+            if [ -d "${sourceutility}/backupsources" ]
+            then
+                rm -rfv "${sourceutility}/backupsources"
+                clear
+            fi
+
+            cd /
+            
+            ls ./sourceutility/backupsources-*.zip
+            echo "Enter the date of which backup you would like to convert: (Type 'exit' to leave.)"
+                read backupDate
+
+                BACKUPTOUNZIP="$SOURCEUTILITYDIR/backupsources-$backupDate.zip"
+                BTURELATIVE="./backupsources-$backupDate.zip"
+                LEG_BACKUPDIR="./legacy_backup"
+                CONVERTEDBACKUP="./sourcebackup-$backupDate.zip"
+                
+
+            if [[ "$backupDate" = 'exit' || "$backupDate" = 'leave' || "$backupDate" = "cancel" || "$backupDate" = "stop" ]]
+            then
+            start_menu
+            fi
+
+            if [ -w $BACKUPTOUNZIP ]
+            then
+                echo "Copying $BACKUPTOUNZIP to tmp directory for contingency..."
+                cp -r $BACKUPTOUNZIP $SOURCEUTILITYTMP
+                echo "Making directory for Legacy Backup..."
+                mkdir $LEG_BACKUPDIR
+                echo "Unzipping Legacy Backup..."
+                unzip -o $BACKUPTOUNZIP
+                echo "Unzipped!"
+                cd $SOURCEUTILITYDIR
+                echo "Creating directories for new backup..."
+                mkdir $SOURCEBACKUPDIR
+                mkdir $CYDIAPREFSBACKUPDIR
+                mkdir $SOURCELISTSBACKUPDIR
+                echo "Copying old backup files to new backup..."
+                cp -fv "./backupsources/cydia/com.saurik.Cydia.plist" $CYDIAPREFSBACKUPDIR
+                cp -afv "./backupsources/sileo/." $SOURCELISTSBACKUPDIR
+                echo "Zipping newly converted backup..."
+                zip -r $CONVERTEDBACKUP $SBDRELATIVE
+                echo "Cleaning up..."
+                rm -rfv "./backupsources"
+                rm -rfv "./legacy_backup"
+                rm -rfv $SBDRELATIVE
+                cd /
+                echo "Finished converting your backup. You can find it at '$SOURCEUTILITYDIR/sourcebackup-$backupDate.zip'."
+            else
+                echo "Cannot write to $BACKUPTOUNZIP"
+            fi
+
+        pause
+        else
+        start_menu
+        fi
+    start_menu
+}
 
 
 # function to display start menus
@@ -386,11 +473,12 @@ show_menus() {
     echo "~~ Start Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	echo "1. Backup Cydia and/or Sileo Sources"
-    echo "2. Restore Sileo Sources"
-    echo "3. Delete Cydia/Sileo Source Backups"
-	echo "4. Sync Cydia Sources to Sileo"
-    echo "5. Sync Sileo Sources to Cydia"
-    echo "6. Utilities Menu"
+    echo "2. Restore Cydia & Sileo Sources"
+    echo -e "3. ${RED}Delete Cydia/Sileo Source Backups${STD}"
+    echo "4. Convert Legacy Backups"
+	echo "5. Sync Cydia Sources to Sileo"
+    echo "6. Sync Sileo Sources to Cydia"
+    echo "7. Utilities Menu"
 	echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
@@ -414,17 +502,22 @@ read_options(){
             } || {
                 exit 1;
             } ;;
-		4) {
+        4) {
+            convert_legacy_backups
+        } || {
+            exit 1;
+        } ;;
+		5) {
             sync_cydia_to_sileo
             } || {
                 exit 1;
             } ;;
-		5) {
+		6) {
             sync_sileo_to_cydia
             } || {
                 exit 1;
             } ;;
-        6) {
+        7) {
             utilies_menu
         } || {
             exit 1;
@@ -445,13 +538,15 @@ show_u_menus() {
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"	
 	echo " sourceutility ${VER} by TheHacker "
     echo ""
-    echo "~~ Utilities Menu ~~"
+    echo "~~ Other Utilities Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	echo "1. ldrestart"
     echo "2. Kill Springboard"
-    echo "3. Purge .DS_STORE files"
-    echo "4. Purge Cydia Lists & Sources"
-    echo "5. Start Menu"
+    echo -e "3. ${RED}Reboot${STD}"
+    echo "4. Purge .DS_STORE files"
+    echo -e "5. ${RED}Purge Cydia & Sources Lists/Sources${STD}"
+    echo "6. apt-get update"
+    echo "7. Start Menu"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
@@ -463,24 +558,35 @@ read_u_options(){
 		1) { 
             hard_respring 
             } || { 
-                exit 1;
+                echo -e "${RED}Could not run ldrestart. Try running as root?${STD}" && sleep 2
                 } ;;
         2) {
             kill_springboard
             } || {
-                echo -e "Could not kill springboard. Try running as root?" && sleep 2
+                echo -e "${RED}Could not kill springboard. Try running as root?${STD}" && sleep 2
             } ;;
         3) {
+            run_reboot
+            } || {
+                echo -e "${RED}Could not reboot. Try running as root?${STD}" && sleep 2
+            } ;;
+        4) {
             purge_ds_store
             } || {
                 exit 1;
             } ;;
-		4) {
-            remove_cydia_lists_sources 
+        
+		5) {
+            remove_lists_sources 
             } || {
                 exit 1;
             } ;;
-		5) {
+        6) {
+        update_sources
+        } || {
+            exit 1;
+        } ;;
+		7) {
             start_menu
             } || {
                 exit 1;
@@ -500,10 +606,12 @@ trap '' SIGINT SIGQUIT SIGTSTP
 # ------------------------------------
 
 start_menu() {
+    cd /
     show_menus
 	read_options
 }
 utilies_menu() {
+    cd /
     show_u_menus
     read_u_options
 }

@@ -2,7 +2,7 @@
 
 echo =====================================
 echo sourceutility by TheHacker
-echo "Run sourceutility in the Terminal to access the setup menu"
+echo "Run sourceutility in the Terminal to access the start menu"
 echo ""
-echo "I HAD TO DISABLE RESTORING CYDIA SOURCES TEMPORARILY. I PROMISE I AM WORKING ON IT."
+echo "Backups from <=0.3-1 will not work with 0.4"
 echo =====================================
