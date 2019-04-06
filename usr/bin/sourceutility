@@ -1,7 +1,7 @@
 #!/bin/sh 
 
 clear
-VER="0.4"
+VER="0.4-1"
 echo "sourceutility v" $VER
 
 ## ----------------------------------
@@ -313,6 +313,15 @@ restore_sources() {
                         rm -fv $BTURELATIVE
                     fi
                 echo "If the backup did not restore correctly, you can open the zip file in $SOURCEUTILITYTMP"
+                pause
+                echo "Because unc0ver is a little *female dog*, it likes to cache everything in Cydia. Running installsileo can fix some issues after restoring a backup."
+                read -p "Would you run installsileo? [Y/N] " -n 1 -r
+                    echo    # (optional) move to a new line
+                    if [[ $REPLY =~ ^[Yy]$ ]]
+                    then
+                        echo "Running..." && sleep 2
+                        installsileo
+                    fi
                 cd /
             else 
             echo "Could not read $BTURELATIVE. Does it exist?"
