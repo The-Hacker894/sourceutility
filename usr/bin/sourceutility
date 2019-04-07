@@ -1,14 +1,15 @@
 #!/bin/sh 
 
 clear
-VER="0.4-3"
+VER="0.5"
 echo "sourceutility v" $VER
 
 ## ----------------------------------
 # Step #1: Define variables
 # ----------------------------------
 RED='\033[31m'
-BLUE='\033[34m'
+GREEN='\033[32m'
+YELLOW='\033[1;33m'
 STD='\033[0;0;39m'
 ROOT="/"
 SOURCEUTILITYDIR="/sourceutility"
@@ -29,7 +30,6 @@ CYDIAPREFSBACKUP="$CYDIAPREFSBACKUPDIR/$CYDIAPREFNAME"
 CYDIACACHEDIR="/private/var/mobile/Library/Caches/com.saurik.Cydia"
 CYDIASOURCESCACHE="$CYDIACACHEDIR/sources.list"
 CYDIALISTCACHE="$CYDIACACHEDIR/lists"
-CYDIAARCHIVES="$CYDIACACHEDIR/archives"
 CYDIACACHEBACKUPDIR="$SOURCEBACKUPDIR/cache"
 
 APTDIR="/private/var/lib/apt"
@@ -70,7 +70,7 @@ kill_cydia() {
 decide_if_tip() {
     if [ $(( ( RANDOM % 10 )  + 1 )) -gt 7 ]
     then
-    echo "Tip: Entries with blue labels have menus behind them!"
+    echo "Tip: Entries with purple labels have menus behind them!"
     echo ""
     fi
 }
@@ -107,6 +107,80 @@ update_sources() {
     echo "Updating source lists. This may take a while..." && sleep 2
     apt-get update
     start_menu
+}
+reinstall_cydia() {
+    
+    cd $SOURCEUTILITYDIR
+    check_if_root
+    kill_cydia
+    kill_sileo
+    echo "Checking for tmp directory..."
+    if [ ! -d $SOURCEUTILITYTMP ]; then
+    echo "Creating tmp directory..."
+        mkdir $SOURCEUTILITYTMP
+    fi
+    cd $SOURCEUTILITYTMP
+    REPO="https://apt.bingner.com/"
+    CYDIADL="$REPO/debs/1443.00/cydia_1.1.32~b12_iphoneos-arm.deb"
+    
+    cont() {
+        echo "Downloading Cydia from $CYDIADL..."
+        curl -o ./cydia.deb $CYDIADL
+        echo "Attempting to install Cydia..."
+        echo "Running dpkg..."
+        dpkg -i ./cydia.deb
+        echo "Running uicache... (this may take some time)"
+        uicache
+        echo "Cleaning up..."
+        rm -f ./cydia.deb
+        cd /
+        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded. If Cydia did not install or install correctly, Re-Jailbreak with 'Reinstall Cydia' activated in unc0ver."
+        pause
+    }
+    ex() {
+        echo "Can't connect to apt.bingner.com!"
+        pause
+        start_menu
+    }
+
+    echo "Checking ability to connect to 'apt.bingner.com'..."
+    case "$(curl -s --max-time 2 -I $REPO | sed 's/^[^ ]*  *\([0-9]\).*/\1/; 1q')" in
+  [23]) cont ;;
+  5) ex ;;
+  *) ex;;
+    esac
+   
+
+}
+run_diatrus_cydia_patch() {
+    check_if_root
+    echo "Patching Cydia..."
+    kill_cydia
+    kill_sileo
+                ## From Diatrus's Sileo Installer for unc0ver 
+
+                echo '<?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                <plist version="1.0">
+                <dict>
+                    <key>platform-application</key>
+                    <true/>
+                    <key>com.apple.private.skip-library-validation</key>
+                    <true/>
+                    <key>com.apple.private.security.no-container</key>
+                    <true/>
+                </dict>
+                </plist>' >> ./ent.xml
+                sed -i 's/sources\.list\.d/sources\.cydiad/g' /Applications/Cydia.app/Cydia
+                mkdir -p /etc/apt/sources.cydiad/
+                if ! [ -s /etc/apt/sources.cydiad/cydia.list ]; then
+                    ln -s /var/mobile/Library/Caches/com.saurik.Cydia/sources.list /etc/apt/sources.cydiad/cydia.list
+                fi
+                rm -f /private/etc/apt/sources.list.d/cydia.list
+                chown 501:501 /Applications/Cydia.app/Cydia
+                ldid -S./ent.xml /Applications/Cydia.app/Cydia
+                chown 0:0 /Applications/Cydia.app/Cydia
+                echo "Patched!" && sleep 2
 }
 remove_lists_sources() {
     echo ""
@@ -245,7 +319,6 @@ cp -rfv $CYDIAPREFS $CYDIAPREFSBACKUPDIR
 echo "Copying Cydia Cache to $CYDIACACHEBACKUPDIR..."
 cp -rfv $CYDIASOURCESCACHE $CYDIACACHEBACKUPDIR
 cp -rfv $CYDIALISTCACHE $CYDIACACHEBACKUPDIR
-cp -rfv $CYDIAARCHIVES $CYDIACACHEBACKUPDIR
 echo "Copying Source Lists to $SOURCELISTSBACKUPDIR..."
 cp -afv "$SOURCELISTS/." "$SOURCELISTSBACKUPDIR/"
 echo "Successfully copied files to backup directories!" && sleep 2
@@ -311,6 +384,9 @@ restore_sources() {
                 ## Copying backup files to their respective locations
                 echo "Copying Cydia Preferences Backup to $PREFSDIR"
                 cp -fv $CYDIAPREFSBACKUP $PREFSDIR
+                echo "Removing target Cydia Cache files..."
+                rm -rf "$CYDIACACHEDIR/lists"
+                rm -rf "$CYDIACACHEDIR/sources.list"
                 echo "Copying Cydia Cache Backup to $CYDIACACHEDIR"
                 cp -afv "$CYDIACACHEBACKUPDIR/." "$CYDIACACHEDIR/"
                 echo "Copying Source List Backup to $SOURCELISTS"
@@ -324,32 +400,29 @@ restore_sources() {
                     fi
                 echo "If the backup did not restore correctly, you can open the zip file in $SOURCEUTILITYTMP"
                 pause
-                echo "Patching Cydia..."
                 
-                ## From Diatrus's Sileo Installer for unc0ver 
+                echo -e "This utility breaks Cydia.app after a restore for some. ${RED}Reinstalling Cydia${STD} seems to fix this issue. Your tweaks and sources will not be erased."
+                    read -p "Would you like to reinstall Cydia? [Y/N] " -n 1 -r
+                        echo    # (optional) move to a new line
+                        if [[ $REPLY =~ ^[Yy]$ ]]; then
+                            reinstall_cydia
+                        else
+                        echo "You can run ${RED}Reinstall Cydia${STD} from the Patches Menu"
+                        pause
+                        start_menu
+                        fi
+                echo -e "After reinstalling Cydia, you may need to run a patch that fixes duplicate sources. This may only be needed if you are using both Sileo and Cydia on unc0ver. Your tweaks and sources will not be erased."
+                    read -p "Would you like to patch Cydia? [Y/N] " -n 1 -r
 
-                echo '<?xml version="1.0" encoding="UTF-8"?>
-                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-                <plist version="1.0">
-                <dict>
-                    <key>platform-application</key>
-                    <true/>
-                    <key>com.apple.private.skip-library-validation</key>
-                    <true/>
-                    <key>com.apple.private.security.no-container</key>
-                    <true/>
-                </dict>
-                </plist>' >> ./ent.xml
-                sed -i 's/sources\.list\.d/sources\.cydiad/g' /Applications/Cydia.app/Cydia
-                mkdir -p /etc/apt/sources.cydiad/
-                if ! [ -s /etc/apt/sources.cydiad/cydia.list ]; then
-                    ln -s /var/mobile/Library/Caches/com.saurik.Cydia/sources.list /etc/apt/sources.cydiad/cydia.list
-                fi
-                rm -f /private/etc/apt/sources.list.d/cydia.list
-                chown 501:501 /Applications/Cydia.app/Cydia
-                ldid -S./ent.xml /Applications/Cydia.app/Cydia
-                chown 0:0 /Applications/Cydia.app/Cydia
-                echo "Patched!" && sleep 2
+                    echo    # (optional) move to a new line
+                        if [[ $REPLY =~ ^[Yy]$ ]]; then
+                            run_diatrus_cydia_patch
+                        else
+                        echo -e "You can run ${RED}Patch Cydia${STD} from the Patches Menu"
+                        pause
+                        start_menu
+                        fi
+                pause
                 kill_springboard
                 start_menu
 
@@ -515,50 +588,25 @@ show_menus() {
     echo "4. Convert Legacy Backups"
 	echo "5. Sync Cydia Sources to Sileo"
     echo "6. Sync Sileo Sources to Cydia"
-    echo -e "7. ${BLUE}Utilities Menu${STD}"
+    echo -e "7. ${GREEN}Utilities Menu${STD}"
+    echo -e "8. ${GREEN}Patches Menu${STD}"
 	echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
 
 read_options(){
 	local choice
-	read -p "Enter choice [ 0 - 6 ] " choice
+	read -p "Enter choice [ 0 - 8 ] " choice
 	case $choice in
-		1) { 
-            backup_sources 
-            } || { 
-                exit 1;
-                } ;;
-        2) {
-            restore_sources
-            } || {
-                exit 1;
-            } ;;
-        3) {
-            delete_source_backups
-            } || {
-                exit 1;
-            } ;;
-        4) {
-            convert_legacy_backups
-        } || {
-            exit 1;
-        } ;;
-		5) {
-            sync_cydia_to_sileo
-            } || {
-                exit 1;
-            } ;;
-		6) {
-            sync_sileo_to_cydia
-            } || {
-                exit 1;
-            } ;;
-        7) {
-            utilies_menu
-        } || {
-            exit 1;
-        } ;;
+		1) backup_sources ;;
+        2) restore_sources ;;
+        3) delete_source_backups ;;
+        4) convert_legacy_backups ;;
+		5) sync_cydia_to_sileo ;;
+		6) sync_sileo_to_cydia ;;
+        7) utilies_menu ;;
+        8) patch_menu ;;
+        
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
@@ -579,26 +627,31 @@ show_u_menus() {
     echo "~~ Other Utilities Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	echo "1. ldrestart"
-    echo -e "2. ${BLUE}Kill${STD}"
+    echo "2. uicache"
     echo -e "3. ${RED}Reboot${STD}"
     echo "4. Purge .DS_STORE files"
     echo -e "5. ${RED}Purge Cydia & Sources Lists/Sources${STD}"
     echo "6. apt-get update"
-    echo -e "7. ${BLUE}Start Menu${STD}"
+    echo -e "7. ${GREEN}Start Menu${STD}"
+    echo -e "8. ${GREEN}Patches Menu${STD}"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
 
 read_u_options(){
 	local choice
-	read -p "Enter choice [ 0 - 5 ] " choice
+	read -p "Enter choice [ 0 - 8 ] " choice
 	case $choice in
 		1) { 
             hard_respring 
             } || { 
                 echo -e "${RED}Could not run ldrestart. Try running as root?${STD}" && sleep 2
                 } ;;
-        2) kill_menu ;;
+        2) { 
+            uicache
+            } || { 
+                echo -e "${RED}Could not run uicache. Try running as root?${STD}" && sleep 2
+                } ;;
         3) {
             run_reboot
             } || {
@@ -608,11 +661,12 @@ read_u_options(){
 		5) remove_lists_sources ;;
         6) update_sources ;;
 		7) start_menu ;;
+        8) patch_menu ;;
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
 }
-show_kill_menu() {
+show_patch_menu() {
     clear
     echo ""
     echo ""
@@ -624,25 +678,29 @@ show_kill_menu() {
 	echo " sourceutility ${VER} by TheHacker "
     echo ""
     decide_if_tip
-    echo "~~ Kill Menu ~~"
+    echo "~~ Patches Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-	echo "1. Kill Springboard"
-    echo "2. Kill Cydia"
-    echo "3. Kill Sileo"
-    echo -e "4. ${BLUE}Start Menu${STD}"
-    echo -e "5. ${BLUE}Utilities Menu${STD}"
+	echo "1. Patch Cydia"
+    echo "2. Reinstall Cydia"
+    echo "3. Kill Springboard"
+    echo "4. Kill Cydia"
+    echo "5. Kill Sileo"
+    echo -e "6. ${GREEN}Start Menu${STD}"
+    echo -e "7. ${GREEN}Utilities Menu${STD}"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
-read_kill_options() {
+read_patch_options() {
     local choice
-	read -p "Enter choice [ 0 - 5 ] " choice
+	read -p "Enter choice [ 0 - 7 ] " choice
 	case $choice in
-		1) kill_springboard ;;
-        2) kill_cydia ;;
-        3) kill_sileo ;;
-		4) start_menu ;;
-        5) utilies_menu ;;
+		1) run_diatrus_cydia_patch ;;
+        2) reinstall_cydia ;;
+        3) kill_springboard ;;
+		4) kill_cydia ;;
+        5) kill_sileo ;;
+        6) start_menu ;;
+        7) utilies_menu ;;
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
@@ -667,10 +725,10 @@ utilies_menu() {
     show_u_menus
     read_u_options
 }
-kill_menu() {
+patch_menu() {
     cd /
-    show_kill_menu
-    read_kill_options
+    show_patch_menu
+    read_patch_options
 }
 while true
 do
