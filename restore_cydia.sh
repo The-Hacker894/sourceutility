@@ -2,7 +2,7 @@
 
 
 clear
-VER="1.0~2"
+VER="1.0~3"
 echo "sourceutility restore_sileo v $VER"
 
 DIRECTORY=`dirname $0`
@@ -33,6 +33,27 @@ if [[ $EUID -ne 0 ]]; then
         echo "Please run this script as root!" 
         exit 1;
 fi
+
+check_connection() {
+        URL=$1
+        echo $URL
+
+        ex() {
+            echo "Could not connect to $URL..."
+            read -p "Press [Enter] to continue..." fackEnterKey 
+        }
+        cont() {
+            echo "Connection to $URL returned no errors!"
+        }
+            echo "Checking ability to connect to '$URL'..."
+            
+            case "$(curl -s --max-time 2 -I $URL | sed 's/^[^ ]*  *\([0-9]\).*/\1/; 1q')" in
+        [23]) cont ;;
+        5) ex ;;
+        *) ex;;
+            esac
+    
+}
 
 # Change directory to directory of current shell script
 cd $DIRECTORY
@@ -66,7 +87,7 @@ pause
 
 erase_tmp() {
         echo "Cleaning up..."
-        rm tmp/
+        rm -rf tmp/
 }
 reinstall_cydia() {
     
