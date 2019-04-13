@@ -73,11 +73,13 @@ reinstall_cydia() {
     mkdir tmp/
     cd tmp/
     check_if_root
-    kill_cydia
-    kill_sileo
+    killall Cydia
+    killall SIleo
     echo "Checking for tmp directory..."
     
+    REPO_U0="https://apt.bingner.com"
     REPO_EL="https://electrarepo64.coolstar.org"
+    CYDIADL_U0="$REPO_U0/debs/1443.00/cydia_1.1.32~b12_iphoneos-arm.deb"
     CYDIADL_EL="$REPO_EL/debs/cydia_2.1-1_iphoneos-arm.deb"
     
     u0() {
@@ -139,8 +141,8 @@ reinstall_cydia() {
 run_diatrus_cydia_patch() {
     check_if_root
     echo "Patching Cydia and Sileo..."
-    kill_cydia
-    kill_sileo
+    killall Cydia
+    killall SIleo
                 ## From Diatrus Sileo Installer for unc0ver 
 
                 echo '<?xml version="1.0" encoding="UTF-8"?>
