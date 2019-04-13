@@ -2,8 +2,8 @@
 
 
 clear
-VER="1.0~3"
-echo "sourceutility restore_sileo v $VER"
+VER="1.0~4"
+echo "sourceutility restore_cydia v $VER"
 
 DIRECTORY=`dirname $0`
 
@@ -95,45 +95,63 @@ reinstall_cydia() {
     cd tmp/
     check_if_root
     killall Cydia
-    killall SIleo
+    killall Sileo
     echo "Checking for tmp directory..."
     
     REPO_U0="https://apt.bingner.com"
     REPO_EL="https://electrarepo64.coolstar.org"
-    CYDIADL_U0="$REPO_U0/debs/1443.00/cydia_1.1.32~b12_iphoneos-arm.deb"
-    CYDIADL_EL="$REPO_EL/debs/cydia_2.1-1_iphoneos-arm.deb"
     
     u0() {
         check_connection $REPO_U0
-        echo "Downloading Cydia from $CYDIADL_U0..."
-        curl -o ./cydia.deb $CYDIADL_U0
-        echo "Attempting to install Cydia..."
-        echo "Running dpkg..."
-        dpkg -i ./cydia.deb
-        echo "Running uicache... (this may take some time)"
+        echo "Downloading Electra Packages..."
+        curl -o "./$U0TMP" "$REPO_U0/Packages" && sleep 1
+
+        touch "./$CYDIATMP"
+
+        awk '/^Package: cydia$/ {s=NR;next} s && NR<=s+15' "./$U0TMP" &> $CYDIATMP
+        CYDIAURL=$REPO_U0/$(awk -F'Filename:' '{print $2}' $CYDIATMP)
+        CYDIAURL_CONDENSED="$(echo -e "${CYDIAURL}" | tr -d '[:space:]')"
+        rm -f "./$CYDIATMP"
+        
+        echo "Downloading latest version of Sileo..."
+        curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
+
+        echo "Installing..."
+        dpkg -b ./cydia.deb
+
+        echo "Running uicache"
         uicache
-        echo "Cleaning up..."
+        echo "Cleaning up..." 
         rm -f ./cydia.deb
         cd /
-        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded. If Cydia did not install or install correctly, Re-Jailbreak with Reinstall Cydia activated in unc0ver."
-        erase_tmp
+        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded. "
         pause
         start_menu
     }
     el() {
         check_connection $REPO_EL
-        echo "Downloading Cydia from $CYDIADL_EL..."
-        curl -o ./cydia.deb $CYDIADL_EL
-        echo "Attempting to install Cydia..."
-        echo "Running dpkg..."
-        dpkg -i ./cydia.deb
-        echo "Running uicache... (this may take some time)"
+        echo "Downloading Electra Packages..."
+        curl -o "./$ELECTRATMP" "$REPO_EL/Packages" && sleep 1
+
+        touch "./$CYDIATMP"
+
+        awk '/^Package: cydia$/ {s=NR;next} s && NR<=s+15' "./$ELECTRATMP" &> $CYDIATMP
+        CYDIAURL=$REPO_EL/$(awk -F'Filename:' '{print $2}' $CYDIATMP)
+        CYDIAURL_CONDENSED="$(echo -e "${CYDIAURL}" | tr -d '[:space:]')"
+        rm -f "./$CYDIATMP"
+        
+        echo "Downloading latest version of Sileo..."
+        curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
+
+        echo "Installing..."
+        dpkg -b ./cydia.deb
+
+        echo "Running uicache"
         uicache
-        echo "Cleaning up..."
+        echo "Cleaning up..." 
         rm -f ./cydia.deb
         cd /
-        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded."
-        erase_tmp
+        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded. "
         pause
         start_menu
     }
