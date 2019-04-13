@@ -2,7 +2,7 @@
 
 
 clear
-VER="1.0"
+VER="1.0~2"
 echo "sourceutility restore_sileo v $VER"
 
 DIRECTORY=`dirname $0`
