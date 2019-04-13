@@ -1,7 +1,7 @@
 #!/bin/sh 
 
 clear
-VER="0.6"
+VER="0.7"
 echo "sourceutility v" $VER
 
 ## ----------------------------------
@@ -12,19 +12,22 @@ GREEN='\033[32m'
 YELLOW='\033[1;33m'
 STD='\033[0;0;39m'
 ROOT="/"
+
+CACHEDIR="/private/var/mobile/Library/Caches/"
+
 SOURCEUTILITYDIR="/sourceutility"
 SOURCEUTILITYTMP="/sourceutility/tmp"
 
 SOURCEBACKUPDIR="$SOURCEUTILITYDIR/backups"
 SBDRELATIVE="./backups"
 
-SOURCELISTS="/etc/apt/sources.list.d" # Will need to copy everything from this directory to complete backup
+SOURCELISTS="/private/etc/apt/sources.list.d" # Will need to copy everything from this directory to complete backup
 SOURCELISTSBACKUPDIR="$SOURCEBACKUPDIR/sourcelists"
-SOURCELISTSCYDIAD="/etc/apt/sources.cydiad" 
+SOURCELISTSCYDIAD="/private/etc/apt/sources.cydiad" 
 SOURCELISTSCYDIADBACKUPDIR="$SOURCEBACKUPDIR/cydiad"
 
 SILEOSOURCENAME="sileo.sources"
-SILEOSOURCELISTCACHE="/private/var/mobile/Library/Caches/$SILEOSOURCENAME"
+SILEOSOURCELISTCACHE="$CACHEDIR/$SILEOSOURCENAME"
 SILEOSOURCELIST="/private/etc/apt/sources.list.d/$SILEOSOURCENAME"
 
 SILEOLISTCACHEBACKUP="$SOURCEBACKUPDIR/sileocache"
@@ -44,7 +47,6 @@ APTDIR="/private/var/lib/apt"
 LOCKFILE="/private/var/lib/apt/lock"
 MORECYDIACACHE="/private/var/mobile/Containers/Data/Application/DBA6B427-BEBD-4C95-9F75-BF4830276BF3/Library/Caches/com.saurik.Cydia"
 
-
 DATE=$(date +%m-%d-%Y)
 SOURCEFULLBACKUPZIP="$SOURCEUTILITYDIR/sourcebackup-$DATE.zip"
 SFBZRELATIVE="./sourcebackup-$DATE.zip"
@@ -55,9 +57,24 @@ CSBZRELATIVE="./source_cydia_backup-$DATE.zip"
 SILEOSOURCEBACKUPZIP="$SOURCEUTILITYDIR/source_sileo_backup-$DATE.zip"
 SSBZRELATIVE="./source_sileo_backup-$DATE.zip"
 
+SYNCADDDIR="$SOURCEUTILITYDIR/sync"
+CUSTOMLISTNAME="sourceutility.list"
+CUSTOMLIST="$SOURCELISTS/$CUSTOMLISTNAME"
+
 SILEOBUNDLEID_U0="org.juulstar.sileo"
 SILEOBUNDLEID_EL="org.coolstar.sileo"
+SILEOINSTALLER="com.diatrus.sileo-installer"
 CYDIABUNDLEID="cydia"
+
+ELECTRATMP="./elpckg"
+U0TMP="./elupckg"
+CYDIATMP="./cydpckg"
+SILEOTMP="./sillyopckg"
+
+GITHUBRAW="https://raw.githubusercontent.com/The-Hacker894/sourceutility/master"
+SILEORESTORESCRIPT="$GITHUBRAW/restore_sileo.sh"
+CYDIARESTORESCRIPT="$GITHUBRAW/restore_cydia.sh"
+FULLRESTORESCRIPT="$GITHUBRAW/restore_full.sh"
 
 # ----------------------------------
 # Step #2: User defined function
@@ -65,7 +82,6 @@ CYDIABUNDLEID="cydia"
 pause(){ 
     read -p "Press [Enter] to continue..." fackEnterKey 
     }
-
 coming_soon(){ 
     read -p "This feature is coming soon. Press [Enter/Return] to continue" fackEnterKey 
 }
@@ -92,7 +108,6 @@ decide_if_tip() {
     echo ""
     fi
 }
-
 init(){
         check_if_root
     if [ ! -w $ROOT ]; then
@@ -120,11 +135,29 @@ init(){
     fi
     
 }
-
 update_sources() {
     echo "Updating source lists. This may take a while..." && sleep 2
     apt-get update
-    start_menu
+}
+check_connection() {
+        URL=$1
+        echo $URL
+
+        ex() {
+            echo "Could not connect to $URL..."
+            pause
+        }
+        cont() {
+            echo "Connection to $URL returned no errors!"
+        }
+            echo "Checking ability to connect to '$URL'..."
+            
+            case "$(curl -s --max-time 2 -I $URL | sed 's/^[^ ]*  *\([0-9]\).*/\1/; 1q')" in
+        [23]) cont ;;
+        5) ex ;;
+        *) ex;;
+            esac
+    
 }
 reinstall_cydia() {
     
@@ -138,37 +171,166 @@ reinstall_cydia() {
         mkdir $SOURCEUTILITYTMP
     fi
     cd $SOURCEUTILITYTMP
-    REPO="https://apt.bingner.com/"
-    CYDIADL="$REPO/debs/1443.00/cydia_1.1.32~b12_iphoneos-arm.deb"
     
-    cont() {
-        echo "Downloading Cydia from $CYDIADL..."
-        curl -o ./cydia.deb $CYDIADL
-        echo "Attempting to install Cydia..."
-        echo "Running dpkg..."
+    REPO_U0="https://apt.bingner.com"
+    REPO_EL="https://electrarepo64.coolstar.org"
+    
+    u0() {
+        check_connection $REPO_U0
+        echo "Downloading Electra Packages..."
+        curl -o "./$U0TMP" "$REPO_U0/Packages" && sleep 1
+
+        touch "./$CYDIATMP"
+
+        awk '/^Package: cydia$/ {s=NR;next} s && NR<=s+15' "./$U0TMP" &> $CYDIATMP
+        CYDIAURL=$REPO_U0/$(awk -F'Filename:' '{print $2}' $CYDIATMP)
+        CYDIAURL_CONDENSED="$(echo -e "${CYDIAURL}" | tr -d '[:space:]')"
+        rm -f "./$CYDIATMP"
+        
+        echo "Downloading latest version of Sileo..."
+        curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
+
+        echo "Installing..."
         dpkg -i ./cydia.deb
-        echo "Running uicache... (this may take some time)"
+
+        echo "Running uicache"
         uicache
-        echo "Cleaning up..."
+        echo "Cleaning up..." 
         rm -f ./cydia.deb
+        rm -f "./$U0TMP"
+        rm -f "./$CYDIATMP"
         cd /
-        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded. If Cydia did not install or install correctly, Re-Jailbreak with 'Reinstall Cydia' activated in unc0ver."
+        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded. "
         pause
+        start_menu
     }
-    ex() {
-        echo "Can't connect to apt.bingner.com!"
+    el() {
+        check_connection $REPO_EL
+        echo "Downloading Electra Packages..."
+        curl -o "./$ELECTRATMP" "$REPO_EL/Packages" && sleep 1
+
+        touch "./$CYDIATMP"
+
+        awk '/^Package: cydia$/ {s=NR;next} s && NR<=s+15' "./$ELECTRATMP" &> $CYDIATMP
+        CYDIAURL=$REPO_EL/$(awk -F'Filename:' '{print $2}' $CYDIATMP)
+        CYDIAURL_CONDENSED="$(echo -e "${CYDIAURL}" | tr -d '[:space:]')"
+        rm -f "./$CYDIATMP"
+        
+        echo "Downloading latest version of Sileo..."
+        curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
+
+        echo "Installing..."
+        dpkg -i ./cydia.deb
+
+        echo "Running uicache"
+        uicache
+        echo "Cleaning up..." 
+        rm -f ./cydia.deb
+        rm -f "./$ELECTRATMP"
+        rm -f "./$CYDIATMP"
+        cd /
+        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded. "
         pause
         start_menu
     }
 
-    echo "Checking ability to connect to 'apt.bingner.com'..."
-    case "$(curl -s --max-time 2 -I $REPO | sed 's/^[^ ]*  *\([0-9]\).*/\1/; 1q')" in
-  [23]) cont ;;
-  5) ex ;;
-  *) ex;;
-    esac
-   
+    which_cydia() {
+    clear
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	echo -e "1. apt.bingner.com (Unc0ver)"
+    echo -e "2. electrarepo64.coolstar.org (Electra)"
+    echo "0. Exit"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    }
+    read_cydia_options() {
+        local choice
+        read -p "Where would you like to download Cydia from? [ 0 - 2 ] " choice
+        case $choice in
+            1) u0 ;;
+            2) el ;;
+            0) start_menu;;
+            *) echo -e "${RED}Invalid Option...${STD}" && sleep 2
+        esac
+    }
+    which_cydia
+    read_cydia_options
+}
+reinstall_sileo() {
 
+    cd $SOURCEUTILITYDIR
+    check_if_root
+    kill_cydia
+    kill_sileo
+    echo "Checking for tmp directory..."
+    if [ ! -d $SOURCEUTILITYTMP ]; then
+    echo "Creating tmp directory..."
+        mkdir $SOURCEUTILITYTMP
+    fi
+    cd $SOURCEUTILITYTMP
+    REPO_U0="https://apt.bingner.com"
+    REPO_EL="https://electrarepo64.coolstar.org"
+    CYDIADL_U0="$REPO_U0/debs/1443.00/cydia_1.1.32~b12_iphoneos-arm.deb"
+    CYDIADL_EL="$REPO_EL/debs/cydia_2.1-1_iphoneos-arm.deb"
+    
+    u0() {
+        echo "Checking if $SILEOINSTALLER is installed..."
+                dpkg-query -W -f='${Status}\n' $SILEOINSTALLER | grep 'install ok' &> /dev/null
+                if [ $? == 0 ]; then
+                    echo "$SILEOINSTALLER is installed!"
+                else            
+                ## If Cydia is not installed, this process will exit to start_menu since it needs both Cydia and Sileo to be installed.
+                    echo "$SILEOINSTALLER is not installed!"
+                    pause
+                    start_menu
+                fi
+        echo "Running installsileo ..."
+        installsileo
+        exit 1;
+    }
+    el() {
+        echo "Downloading Electra Packages..."
+        curl -o "./$ELECTRATMP" "$REPO_EL/Packages" && sleep 1
+
+        touch "./$SILEOTMP"
+
+        awk '/^Package: org.coolstar.sileo$/ {s=NR;next} s && NR<=s+15' "./$ELECTRATMP" &> $SILEOTMP
+        SILEOURL=https://electrarepo64.coolstar.org/$(awk -F'Filename:' '{print $2}' $SILEOTMP)
+        SILEOURL_CONDENSED="$(echo -e "${SILEOURL}" | tr -d '[:space:]')"
+        rm -f "./$SILEOTMP"
+        
+        echo "Downloading latest version of Sileo..."
+        curl --silent -o ./sileo.deb $SILEOURL_CONDENSED
+
+        echo "Installing..."
+        dpkg -i ./sileo.deb
+
+        echo "Running uicache"
+        uicache
+        kill_springboard
+        exit 1;
+    }
+
+
+    which_sileo() {
+    clear
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	echo -e "1. installsileo (Unc0ver)"
+    echo -e "2. electrarepo64.coolstar.org (Electra)"
+    echo "0. Exit"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    }
+    read_sileo_options() {
+        local choice
+        read -p "Where would you like to download Sileo from? [ 0 - 2 ] " choice
+        case $choice in
+            1) u0 ;;
+            2) el ;;
+            0) start_menu;;
+            *) echo -e "${RED}Invalid Option...${STD}" && sleep 2
+        esac
+    }
+    which_sileo
+    read_sileo_options
 }
 run_diatrus_cydia_patch() {
     check_if_root
@@ -298,7 +460,6 @@ remove_lists_sources() {
                             start_menu
                         fi
 }
-
 delete_all_source_backups(){
     check_if_root
     if [ ! -w $ROOT ]; then
@@ -394,7 +555,6 @@ delete_sileo_source_backups() {
         start_menu
         fi
 }
-
 backup_all_sources() {
         # sourcebackup by TheHacker
         JB=null
@@ -485,6 +645,13 @@ backup_all_sources() {
                         cp -rfv $SILEOSOURCELISTCACHE $SILEOLISTCACHEBACKUP
                         echo "Successfully copied files to backup directories!" && sleep 2
                         cd $SOURCEUTILITYDIR
+                        echo "Adding backup script..."
+                        curl -o ./backups/restore.sh $FULLRESTORESCRIPT
+                    
+                        if [ -f ./backups/restore.sh ]; then
+                            touch ./backups/restore.sh
+                            chmod a+x ./backups/restore.sh
+                        fi
                         echo "Zipping backup files..."
                         zip -r9 $SFBZRELATIVE $SBDRELATIVE
                         cd /
@@ -630,6 +797,13 @@ backup_cydia_sources() {
             fi
             echo "Successfully copied all files to backup directories!" && sleep 2
             cd $SOURCEUTILITYDIR
+            curl -o ./backups/restore.sh $CYDIARESTORESCRIPT
+                    
+                    if [ -f ./backups/restore.sh ]; then
+                        touch ./backups/restore.sh
+                        chmod a+x ./backups/restore.sh
+                    fi
+
             echo "Zipping backup files..."
             zip -r9 $CSBZRELATIVE $SBDRELATIVE
             cd /
@@ -660,7 +834,7 @@ backup_sileo_sources() {
                                 fi
             fi
 
-            dpkg-query -W -f='${Status}\n' "*.*.sileo" | grep 'install ok' &> /dev/null
+            dpkg-query -W -f='${Status}\n' 'org.*.sileo' | grep 'install ok' &> /dev/null
                 if [ $? == 0 ]; then
                     if [ ! -r $SILEOSOURCELISTCACHE ]; then
                         echo "Could not read $SILEOSOURCELISTCACHE. Backup cannot continue!"
@@ -694,6 +868,16 @@ backup_sileo_sources() {
                     cp -rfv $SILEOSOURCELISTCACHE $SILEOLISTCACHEBACKUP
                     echo "Successfully copied all files to backup directories!" && sleep 2
                     cd $SOURCEUTILITYDIR
+                    echo "Adding restore script to backup"
+                    
+                    curl -o ./backups/restore.sh $SILEORESTORESCRIPT
+                    
+                    if [ -f ./backups/restore.sh ]; then
+                        touch ./backups/restore.sh
+                        chmod a+x ./backups/restore.sh
+                    fi
+                    
+                    
                     echo "Zipping backup files..."
                     zip -r9 $SSBZRELATIVE $SBDRELATIVE
                     cd /
@@ -709,7 +893,6 @@ backup_sileo_sources() {
                 fi
         fi
 }
-
 restore_all_sources() {
     #sourcerestore by TheHacker
         init
@@ -723,7 +906,7 @@ restore_all_sources() {
         restore() {
             cd $SOURCEUTILITYDIR
             ls ./sourcebackup*.zip
-            echo "Enter the date of which backup you would like to restore: (Type 'exit' to leave.)"
+            echo "Enter the date of which backup you would like to restore: (Type 'exit' to leave)"
                 read backupDate
 
                 BACKUPTOUNZIP="$SOURCEUTILITYDIR/sourcebackup-$backupDate.zip"
@@ -844,7 +1027,7 @@ restore_cydia_sources() {
             echo "Enter the date of which backup you would like to restore: (Type 'exit' to leave.)"
                 read backupDate
                 BACKUPTOUNZIP="$SOURCEUTILITYDIR/source_cydia_backup-$backupDate.zip"
-                BTURELATIVE="./source_sileo_cydia-$backupDate.zip"
+                BTURELATIVE="./source_cydia_backup-$backupDate.zip"
                 if [[ "$backupDate" = 'exit' || "$backupDate" = 'leave' || "$backupDate" = "cancel" || "$backupDate" = "stop" ]]; then
                 start_menu
                 fi
@@ -962,8 +1145,8 @@ restore_sileo_sources() {
                     pause
                     start_menu
                 fi
-                if [ ! -w /private/var/mobile/Library/Caches/ ]; then
-                    echo "Cannot read /private/var/mobile/Library/Caches/ . Try running as root?"
+                if [ ! -w $CACHEDIR ]; then
+                    echo "Cannot read $CACHEDIR . Try running as root?"
                     pause
                     start_menu
                 fi
@@ -985,8 +1168,8 @@ restore_sileo_sources() {
                 echo "Unzipped!"
                 kill_cydia
                 kill_sileo
-                echo "Copying Sileo Source Cache to /private/var/mobile/Library/Caches/ ..."
-                cp -afv "$SILEOLISTCACHEBACKUP/." /private/var/mobile/Library/Caches/
+                echo "Copying Sileo Source Cache to $CACHEDIR ..."
+                cp -afv "$SILEOLISTCACHEBACKUP/." $CACHEDIR
                 echo "Copying Sileo Source List to $SOURCELISTS ..."
                 cp -afv "$SOURCELISTSBACKUPDIR/." $SOURCELISTS
                 echo "Finished restoring Sileo Sources!"
@@ -997,14 +1180,20 @@ restore_sileo_sources() {
                     echo    # (optional) move to a new line
                     if [[ $REPLY =~ ^[Yy]$ ]]; then
                         rm -fv $BTURELATIVE
-                fi
-                
+                    fi
+                update_sources
             else
                 echo "Could not read $BTURELATIVE. Does it exist?"
                 pause
                 start_menu
             fi
         fi
+}
+copy_cydia_to_sileo() {
+    coming_soon
+}
+copy_sileo_to_cydia() {
+    coming_soon
 }
 purge_ds_store() {
     if [ ! -w $ROOT ]; then
@@ -1019,13 +1208,6 @@ purge_ds_store() {
     echo "Finished pruging .DS_STORE files!"
     pause
 }
-sync_cydia_to_sileo() {
-    coming_soon
-}
-sync_sileo_to_cydia() {
-    coming_soon
-}
-
 hard_respring() {
     check_if_root
     echo "Do NOT close terminate this script until your iOS Device has resprung."
@@ -1050,7 +1232,7 @@ run_reboot() {
         fi
 }
 
-# function to display start menus
+# START MENU
 show_menus() {
 	clear
     echo ""
@@ -1067,32 +1249,29 @@ show_menus() {
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	echo -e "1. ${GREEN}Backup Sources${STD}"
     echo -e "2. ${GREEN}Restore Sources${STD}"
-    echo -e "3. ${RED}Delete Backups${STD}"
-	echo "4. Sync Cydia Sources to Sileo"
-    echo "5. Sync Sileo Sources to Cydia"
-    echo -e "6. ${GREEN}Utilities Menu${STD}"
-    echo -e "7. ${GREEN}Patches Menu${STD}"
+    echo -e "3. ${GREEN}Sync Sources${STD}"
+    echo -e "4. ${RED}Delete Backups${STD}"
+    echo -e "5. ${GREEN}Utilities Menu${STD}"
+    echo -e "6. ${GREEN}Patches Menu${STD}"
 	echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
-
 read_options(){
 	local choice
-	read -p "Enter choice [ 0 - 7 ] " choice
+	read -p "Enter choice [ 0 - 6 ] " choice
 	case $choice in
 		1) backup_menu ;;
         2) restore_menu ;;
-        3) delete_backups_menu ;;
-		4) sync_cydia_to_sileo ;;
-		5) sync_sileo_to_cydia ;;
-        6) utilies_menu ;;
-        7) patch_menu ;;
+        3) sync_menu ;;
+		4) delete_backups_menu ;;
+        5) utilies_menu ;;
+        6) patch_menu ;;
         
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
 }
-# function to display start menus
+# UTILITIES MENU
 show_u_menus() {
 	clear
     echo ""
@@ -1111,14 +1290,13 @@ show_u_menus() {
     echo "2. uicache"
     echo -e "3. ${RED}Reboot${STD}"
     echo "4. Purge .DS_STORE files"
-    echo -e "5. ${RED}Purge Cydia & Sources Lists/Sources${STD}"
+    echo -e "5. ${RED}Purge Cydia & Sileo Lists/Sources${STD}"
     echo "6. apt-get update"
     echo -e "7. ${GREEN}Start Menu${STD}"
     echo -e "8. ${GREEN}Patches Menu${STD}"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
-
 read_u_options(){
 	local choice
 	read -p "Enter choice [ 0 - 8 ] " choice
@@ -1147,6 +1325,7 @@ read_u_options(){
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
 }
+# PATCHES MENU
 show_patch_menu() {
     clear
     echo ""
@@ -1164,30 +1343,33 @@ show_patch_menu() {
 	echo "1. Patch Cydia"
     echo "2. Patch Sileo Sources"
     echo "3. Reinstall Cydia"
-    echo "4. Kill Springboard"
-    echo "5. Kill Cydia"
-    echo "6. Kill Sileo"
-    echo -e "7. ${GREEN}Start Menu${STD}"
-    echo -e "8. ${GREEN}Utilities Menu${STD}"
+    echo "4. Reinstall Sileo"
+    echo "5. Kill Springboard"
+    echo "6. Kill Cydia"
+    echo "7. Kill Sileo"
+    echo -e "8. ${GREEN}Start Menu${STD}"
+    echo -e "9. ${GREEN}Utilities Menu${STD}"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
 read_patch_options() {
     local choice
-	read -p "Enter choice [ 0 - 8 ] " choice
+	read -p "Enter choice [ 0 - 9 ] " choice
 	case $choice in
 		1) run_diatrus_cydia_patch ;;
         2) patch_sileo_sources ;;
         3) reinstall_cydia ;;
-        4) kill_springboard ;;
-		5) kill_cydia ;;
-        6) kill_sileo ;;
-        7) start_menu ;;
-        8) utilies_menu ;;
+        4) reinstall_sileo ;;
+        5) kill_springboard ;;
+		6) kill_cydia ;;
+        7) kill_sileo ;;
+        8) start_menu ;;
+        9) utilies_menu ;;
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
 }
+# BACKUP MENU
 show_backup_menu() {
     clear
     echo ""
@@ -1225,6 +1407,7 @@ read_backup_options() {
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
 }
+# RESTORE MENU
 show_restore_menu() {
     clear
     echo ""
@@ -1262,6 +1445,7 @@ read_restore_options() {
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
 }
+# DELETE MENU
 show_delete_menu() {
     clear
     echo ""
@@ -1292,6 +1476,43 @@ read_delete_options() {
 		1) delete_all_source_backups ;;
         2) delete_cydia_source_backups ;;
         3) delete_sileo_source_backups ;;
+        4) start_menu ;;
+        5) utilies_menu ;;
+        6) patch_menu ;;
+        0) exit 0;;
+		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
+	esac
+}
+# SYNC MENU
+show_sync_menu() {
+    clear
+    echo ""
+    echo ""
+	echo ""
+    echo ""
+    echo ""
+    echo ""
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"	
+	echo " sourceutility ${VER} by TheHacker "
+    echo ""
+    decide_if_tip
+    echo "~~ Sync Sources Menu ~~"
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    echo -e "1. Copy sources from Sileo to Cydia"
+    echo -e "2. Copy sources from Cydia to Sileo"
+    echo -e "3. ${GREEN}Start Menu${STD}"
+    echo -e "4. ${GREEN}Utilities Menu${STD}"
+    echo -e "5. ${GREEN}Patches Menu${STD}"
+    echo "0. Exit"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+}
+read_sync_options() {
+    local choice
+	read -p "Enter choice [ 0 - 5 ] " choice
+	case $choice in
+		1) sync_add_sources ;;
+        2) copy_sileo_to_cydia ;;
+        3) copy_cydia_to_sileo ;;
         4) start_menu ;;
         5) utilies_menu ;;
         6) patch_menu ;;
@@ -1337,6 +1558,11 @@ delete_backups_menu() {
     cd /
     show_delete_menu
     read_delete_options
+}
+sync_menu() {
+    cd /
+    show_sync_menu
+    read_sync_options
 }
 while true
 do

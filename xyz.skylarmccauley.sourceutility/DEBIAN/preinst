@@ -1,0 +1,9 @@
+#!/bin/bash
+
+echo =====================================
+echo "sourceutility v0.7 by TheHacker"
+echo ""
+echo "Run sourceutility in the MobileTerminal, NewTerm2, or over SSH to access the start menu"
+echo ""
+echo "https://skylarmccauley.xyz/hacked-repo/"
+echo =====================================

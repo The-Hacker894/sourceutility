@@ -2,7 +2,7 @@
 
 
 clear
-VER="1.0~4"
+VER="1.0~5"
 echo "sourceutility restore_cydia v $VER"
 
 DIRECTORY=`dirname $0`
@@ -117,7 +117,7 @@ reinstall_cydia() {
         curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
 
         echo "Installing..."
-        dpkg -b ./cydia.deb
+        dpkg -i ./cydia.deb
 
         echo "Running uicache"
         uicache
@@ -144,7 +144,7 @@ reinstall_cydia() {
         curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
 
         echo "Installing..."
-        dpkg -b ./cydia.deb
+        dpkg -i ./cydia.deb
 
         echo "Running uicache"
         uicache

@@ -1,7 +1,0 @@
-#!/bin/bash
-
-echo =====================================
-echo "Thanks for installing sourceutility v0.6"
-echo ""
-echo "Backups from <=0.3-1 will not work with 0.4"
-echo =====================================
