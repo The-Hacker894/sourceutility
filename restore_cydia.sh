@@ -3,7 +3,7 @@
 
 clear
 VER="1.0~6"
-echo "sourceutility restore_cydia v $VER"
+echo "sourceutility restore_cydia v$VER"
 
 DIRECTORY=`dirname $0`
 
