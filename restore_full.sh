@@ -1,12 +1,15 @@
 #!/bin/sh
 clear
-VER="1.0~1"
+VER="1.0~2"
 echo "sourceutility restore_full v$VER"
 
 DIRECTORY=`dirname $0`
 
 SOURCELISTS="/private/etc/apt/sources.list.d" # Will need to copy everything from this directory to complete backup
 SOURCELISTSCYDIAD="/private/etc/apt/sources.cydiad" 
+
+CYDIASOURCESD="/private/etc/apt/cydiasources.d"
+CYDIASOURCESDBACKUPDIR="./cydiasourcesd"
 
 CACHEDIR="/private/var/mobile/Library/Caches/"
 
@@ -58,14 +61,30 @@ fi
 echo "Copying Source List Backup to $SOURCELISTS"
 cp -afv "$SOURCELISTSBACKUPDIR/." "$SOURCELISTS/"
 
-if [ "$(ls -A $SOURCELISTSCYDIADBACKUPDIR)" ]; then
-## Not Empty
-echo "Copying sources.cydiad Backups to $SOURCELISTSCYDIAD"
-cp -afv "$SOURCELISTSCYDIADBACKUPDIR/." $SOURCELISTSCYDIAD
-else
-## Empty
-echo "$SOURCELISTSCYDIADBACKUPDIR is either empty or does not exist. Continuing with restore!"
+if [ -d $SOURCELISTSCYDIAD ]; then
+    if [ "$(ls -A $SOURCELISTSCYDIADBACKUPDIR)" ]; then
+    ## Not Empty
+    echo "Copying sources.cydiad Backups to $SOURCELISTSCYDIAD"
+    cp -afv "$SOURCELISTSCYDIADBACKUPDIR/." $SOURCELISTSCYDIAD
+    else
+    ## Empty
+    echo "$SOURCELISTSCYDIADBACKUPDIR is either empty or does not exist. Continuing with restore!"
+    fi
 fi
+
+if [ -d $CYDIASOURCESD ]; then
+    if [ "$(ls -A $CYDIASOURCESDBACKUPDIR)" ]; then
+    ## Not Empty
+    echo "Copying sources.cydiad Backups to $CYDIASOURCESD"
+    cp -afv "$CYDIASOURCESDBACKUPDIR/." $CYDIASOURCESD
+    else
+        ## Empty
+        echo "$CYDIASOURCESDBACKUPDIR is either empty or does not exist. Continuing with restore..."
+    fi
+else
+echo "$CYDIASOURCESD is either empty or does not exist. Continuing with restore..."
+fi
+
 echo "Finished restoring sources!"
 pause
 
@@ -165,7 +184,7 @@ run_diatrus_cydia_patch() {
     check_if_root
     echo "Patching Cydia and Sileo..."
     killall Cydia
-    killall SIleo
+    killall Sileo
                 ## From Diatrus Sileo Installer for unc0ver 
 
                 echo '<?xml version="1.0" encoding="UTF-8"?>

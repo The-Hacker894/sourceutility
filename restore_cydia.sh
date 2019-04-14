@@ -2,7 +2,7 @@
 
 
 clear
-VER="1.0~5"
+VER="1.0~6"
 echo "sourceutility restore_cydia v $VER"
 
 DIRECTORY=`dirname $0`
@@ -12,6 +12,9 @@ SOURCELISTSBACKUPDIR="./sourcelists"
 
 SOURCELISTSCYDIAD="/private/etc/apt/sources.cydiad" 
 SOURCELISTSCYDIADBACKUPDIR="./cydiad"
+
+CYDIASOURCESD="/private/etc/apt/cydiasources.d"
+CYDIASOURCESDBACKUPDIR="./cydiasourcesd"
 
 CACHEDIR="/private/var/mobile/Library/Caches/"
 
@@ -74,14 +77,30 @@ fi
 echo "Copying Source List Backup to $SOURCELISTS"
 cp -afv "$SOURCELISTSBACKUPDIR/." "$SOURCELISTS/"
 
-if [ "$(ls -A $SOURCELISTSCYDIADBACKUPDIR)" ]; then
-## Not Empty
-echo "Copying sources.cydiad Backups to $SOURCELISTSCYDIAD"
-cp -afv "$SOURCELISTSCYDIADBACKUPDIR/." $SOURCELISTSCYDIAD
-else
-## Empty
-echo "$SOURCELISTSCYDIADBACKUPDIR is either empty or does not exist. Continuing with restore!"
+if [ -d $SOURCELISTSCYDIAD ]; then
+    if [ "$(ls -A $SOURCELISTSCYDIADBACKUPDIR)" ]; then
+    ## Not Empty
+    echo "Copying sources.cydiad Backups to $SOURCELISTSCYDIAD"
+    cp -afv "$SOURCELISTSCYDIADBACKUPDIR/." $SOURCELISTSCYDIAD
+    else
+    ## Empty
+    echo "$SOURCELISTSCYDIADBACKUPDIR is either empty or does not exist. Continuing with restore!"
+    fi
 fi
+
+if [ -d $CYDIASOURCESD ]; then
+    if [ "$(ls -A $CYDIASOURCESDBACKUPDIR)" ]; then
+    ## Not Empty
+    echo "Copying sources.cydiad Backups to $CYDIASOURCESD"
+    cp -afv "$CYDIASOURCESDBACKUPDIR/." $CYDIASOURCESD
+    else
+        ## Empty
+        echo "$CYDIASOURCESDBACKUPDIR is either empty or does not exist. Continuing with restore..."
+    fi
+else
+echo "$CYDIASOURCESD is either empty or does not exist. Continuing with restore..."
+fi
+
 echo "Finished restoring Cydia Sources!"
 pause
 
