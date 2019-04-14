@@ -1,7 +1,7 @@
 #!/bin/sh 
 
 clear
-VER="0.7.1"
+VER="0.7.1~1"
 echo "sourceutility v$VER"
 
 ## ----------------------------------
@@ -1582,13 +1582,13 @@ sync_menu() {
 }
 while true
 do
-    if [[ $@ == "--help" || $@ == "-h" ]]; then
-        echo "Help argument detected."
-        exit 0;
-    fi
-    if [ $@ -eq "0" ]; then
-     start_menu
-     exit 0;
-    fi
-    echo "Arguemt '$@' does not exist"
+#    if [[ $@ == "--help" || $@ == "-h" ]]; then
+#        echo "Help argument detected."
+#        exit 0;
+#    fi
+#    if [ $@ -eq "0" ]; then
+#     start_menu
+#     exit 0;
+#    fi
+#    echo "Arguemt '$@' does not exist"
 done

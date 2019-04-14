@@ -1,6 +1,6 @@
 Package: xyz.skylarmccauley.sourceutility
 Name: sourceutility
-Version: 0.7.1
+Version: 0.7.1~1
 Depends: firmware (>= 11.0), findutils, curl, grep, rsync, gawk
 Architecture: iphoneos-arm
 Conflicts: xyz.skylarmccauley.sourcebackup, xyz.skylarmccauley.sourceutility (<=0.6)
