@@ -1,7 +1,7 @@
 #!/bin/sh 
 
 clear
-VER="0.7.2"
+VER="0.7.3"
 echo "sourceutility v$VER"
 
 ## ----------------------------------
@@ -176,10 +176,11 @@ reinstall_cydia() {
     
     REPO_U0="https://apt.bingner.com"
     REPO_EL="https://electrarepo64.coolstar.org"
+    REPO_U0_DARK="https://diatr.us/apt"
     
     u0() {
         check_connection $REPO_U0
-        echo "Downloading Electra Packages..."
+        echo "Downloading Elucubratus Packages..."
         curl -o "./$U0TMP" "$REPO_U0/Packages" && sleep 1
 
         touch "./$CYDIATMP"
@@ -189,7 +190,36 @@ reinstall_cydia() {
         CYDIAURL_CONDENSED="$(echo -e "${CYDIAURL}" | tr -d '[:space:]')"
         rm -f "./$CYDIATMP"
         
-        echo "Downloading latest version of Sileo..."
+        echo "Downloading latest version of Cydia..."
+        curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
+
+        echo "Installing..."
+        dpkg -i ./cydia.deb
+
+        echo "Running uicache"
+        uicache
+        echo "Cleaning up..." 
+        rm -f ./cydia.deb
+        rm -f "./$U0TMP"
+        rm -f "./$CYDIATMP"
+        cd /
+        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded. "
+        pause
+        start_menu
+    }
+    u0_dark() {
+        check_connection $REPO_U0_DARK
+        echo "Downloading Misceo Packages..."
+        curl -o "./$U0TMP" "$REPO_U0_DARK/Packages" && sleep 1
+
+        touch "./$CYDIATMP"
+
+        awk '/^Package: cydia$/ {s=NR;next} s && NR<=s+15' "./$U0TMP" &> $CYDIATMP
+        CYDIAURL=$REPO_U0_DARK/$(awk -F'Filename:' '{print $2}' $CYDIATMP)
+        CYDIAURL_CONDENSED="$(echo -e "${CYDIAURL}" | tr -d '[:space:]')"
+        rm -f "./$CYDIATMP"
+        
+        echo "Downloading latest version of Cydia..."
         curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
 
         echo "Installing..."
@@ -218,7 +248,7 @@ reinstall_cydia() {
         CYDIAURL_CONDENSED="$(echo -e "${CYDIAURL}" | tr -d '[:space:]')"
         rm -f "./$CYDIATMP"
         
-        echo "Downloading latest version of Sileo..."
+        echo "Downloading latest version of Cydia..."
         curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
 
         echo "Installing..."
@@ -239,8 +269,9 @@ reinstall_cydia() {
     which_cydia() {
     clear
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-	echo -e "1. apt.bingner.com (Unc0ver & unc0ver dark)"
-    echo -e "2. electrarepo64.coolstar.org (Electra)"
+	echo -e "1. apt.bingner.com (Unc0ver)"
+    echo -e "2. diatr.us/apt (Unc0ver Dark)"
+    echo -e "3. electrarepo64.coolstar.org (Electra)"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     }
@@ -249,7 +280,8 @@ reinstall_cydia() {
         read -p "Where would you like to download Cydia from? [ 0 - 2 ] " choice
         case $choice in
             1) u0 ;;
-            2) el ;;
+            2) u0_dark ;; 
+            3) el ;;
             0) start_menu;;
             *) echo -e "${RED}Invalid Option...${STD}" && sleep 2
         esac
