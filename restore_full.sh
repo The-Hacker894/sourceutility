@@ -1,6 +1,6 @@
 #!/bin/sh
 clear
-VER="1.0~2"
+VER="1.0~3"
 echo "sourceutility restore_full v$VER"
 
 DIRECTORY=`dirname $0`
@@ -31,12 +31,46 @@ SILEOLISTCACHEBACKUP="./sileocache/$SILEOSOURCENAME"
 SOURCELISTSBACKUPDIR="./sourcelists"
 SOURCELISTSCYDIADBACKUPDIR="./cydiad"
 
+SILEOBUNDLEID="org.coolstar.sileo"
+CYDIABUNDLEID="cydia"
+ZEBRABUNDLEID="xyz.willy.zebra"
 
 if [[ $EUID -ne 0 ]]; then
         echo "Please run this script as root!" 
         exit 1;
 fi
+# Checking for Cydia & Sileo installation
+CYD=0
+SIL=0
+echo "Checking for Cydia & Sileo installation..."
+dpkg-query -W -f='${Status}\n' "$CYDIABUNDLEID" | grep 'install ok' &> /dev/null
+    if [ ! $? == 0 ]; then
+            CYD=1
+    fi
+dpkg-query -W -f='${Status}\n' "$SILEOBUNDLEID" | grep 'install ok' &> /dev/null
+    if [ ! $? == 0 ]; then
+                SIL=1
+                read -p "Cydia is not installed. Do you still wish to continue? [Y/N]" -n 1 -r
+                echo
+                if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+                exit 1;
+                fi
+    fi
 
+if [[ CYD == 0 ] || [SIL == 0 ]]; then
+    read -p "Either Cydia or Sileo is not installed. Do you still wish to continue? [Y/N]" -n 1 -r
+                echo
+                if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+                exit 1;
+                fi
+fi
+if [[ CYD == 0 ] && [SIL == 0 ]]; then
+    read -p "Both Cydia and Sileo are not installed. Do you still wish to continue? [Y/N]" -n 1 -r
+                echo
+                if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+                exit 1;
+                fi
+fi
 # Change directory to directory of current shell script
 cd $DIRECTORY
 

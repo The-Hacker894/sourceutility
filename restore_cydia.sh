@@ -2,7 +2,7 @@
 
 
 clear
-VER="1.0~6"
+VER="1.0~7"
 echo "sourceutility restore_cydia v$VER"
 
 DIRECTORY=`dirname $0`
@@ -57,7 +57,16 @@ check_connection() {
             esac
     
 }
-
+# Checking for Cydia installation
+echo "Checking for Cydia installation..."
+dpkg-query -W -f='${Status}\n' "cydia" | grep 'install ok' &> /dev/null
+        if [ ! $? == 0 ]; then
+                read -p "Cydia is not installed. Do you still wish to continue? [Y/N]" -n 1 -r
+                echo
+                if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+                exit 1;
+                fi
+        fi
 # Change directory to directory of current shell script
 cd $DIRECTORY
 
