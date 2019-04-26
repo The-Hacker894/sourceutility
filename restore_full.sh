@@ -57,14 +57,14 @@ dpkg-query -W -f='${Status}\n' "$SILEOBUNDLEID" | grep 'install ok' &> /dev/null
                 fi
     fi
 
-if [[ CYD == 0 ] || [SIL == 0 ]]; then
+if [[ CYD == 0 || SIL == 0 ]]; then
     read -p "Either Cydia or Sileo is not installed. Do you still wish to continue? [Y/N]" -n 1 -r
                 echo
                 if ! [[ $REPLY =~ ^[Yy]$ ]]; then
                 exit 1;
                 fi
 fi
-if [[ CYD == 0 ] && [SIL == 0 ]]; then
+if [[ CYD == 0 && SIL == 0 ]]; then
     read -p "Both Cydia and Sileo are not installed. Do you still wish to continue? [Y/N]" -n 1 -r
                 echo
                 if ! [[ $REPLY =~ ^[Yy]$ ]]; then
