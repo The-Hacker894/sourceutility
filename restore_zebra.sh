@@ -8,6 +8,19 @@ DIRECTORY=`dirname $0`
 ZEBRADIR="/private/var/mobile/Documents/xyz.willy.Zebra"
 ZEBRABACKUPDIR="./zebra"
 
+ZEBRABUNDLEID="xyz.willy.zebra"
+
+# Checking for Zebra installation
+echo "Checking for Zebra installation..."
+dpkg-query -W -f='${Status}\n' "$ZEBRABUNDLEID" | grep 'install ok' &> /dev/null
+        if [ ! $? == 0 ]; then
+                read -p "Zebra is not installed. Do you still wish to continue? [Y/N]" -n 1 -r
+                echo
+                if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+                exit 1;
+                fi
+        fi
+
 killall Zebra
 
 cd $DIRECTORY
