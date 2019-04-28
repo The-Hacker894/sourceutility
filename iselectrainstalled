@@ -1,0 +1,7 @@
+#!/bin/sh
+
+if [ -d /electra ]; then
+    echo "${RED}ELECTRA DETECTED${STD}"
+else
+    echo "Electra not detected"
+fi
