@@ -36,7 +36,16 @@ if [[ $EUID -ne 0 ]]; then
         echo "Please run this script as root!" 
         exit 1;
 fi
-
+if [ -d /electra ]; then
+        echo "${RED}ELECTRA DETECTED${STD}"
+        echo "${RED}WARNING:${STD} During my testing on iOS 11 (Electra1141), this tool broke Cydia and I was unable to fix it. Restoring RootFS may not even fix Cydia."
+        echo "Unc0ver and Unc0ver Dark users are fine, but Electra11 users should take caution..."
+        read -p "Are you sure you still want to continue?"
+        echo
+        if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+            exit 1;
+        fi
+    fi
 check_connection() {
         URL=$1
         echo $URL
