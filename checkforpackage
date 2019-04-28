@@ -1,6 +1,0 @@
-#!/bin/sh
-if [ "$(ls -A /sourceutility)" ]; then
-    ## Not Empty
-else
-    ## Empty
-fi
