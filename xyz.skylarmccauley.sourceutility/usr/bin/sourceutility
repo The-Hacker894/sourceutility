@@ -1,7 +1,7 @@
 #!/bin/sh 
 
 clear
-VER="0.7.3"
+VER="0.8"
 echo "sourceutility v$VER"
 
 ## ----------------------------------
@@ -47,6 +47,7 @@ CYDIALISTCACHE="$CYDIACACHEDIR/lists"
 CYDIACACHEBACKUPDIR="$SOURCEBACKUPDIR/cache"
 
 APTDIR="/private/var/lib/apt"
+APTLISTS="/private/var/lib/apt/lists"
 LOCKFILE="/private/var/lib/apt/lock"
 MORECYDIACACHE="/private/var/mobile/Containers/Data/Application/DBA6B427-BEBD-4C95-9F75-BF4830276BF3/Library/Caches/com.saurik.Cydia"
 
@@ -67,9 +68,7 @@ SYNCADDDIR="$SOURCEUTILITYDIR/sync"
 CUSTOMLISTNAME="sourceutility.list"
 CUSTOMLIST="$SOURCELISTS/$CUSTOMLISTNAME"
 
-SILEOBUNDLEID_U0="org.juulstar.sileo"
-SILEOBUNDLEID_EL="org.coolstar.sileo"
-SILEOINSTALLER="com.diatrus.sileo-installer"
+SILEOBUNDLEID="org.coolstar.sileo"
 CYDIABUNDLEID="cydia"
 ZEBRABUNDLEID="xyz.willy.zebra"
 
@@ -79,10 +78,10 @@ CYDIATMP="./cydpckg"
 SILEOTMP="./sillyopckg"
 
 GITHUBRAW="https://raw.githubusercontent.com/The-Hacker894/sourceutility/master"
-SILEORESTORESCRIPT="$GITHUBRAW/restore_sileo.sh"
-CYDIARESTORESCRIPT="$GITHUBRAW/restore_cydia.sh"
-ZEBRARESTORESCRIPT="$GITHUBRAW/restore_zebra.sh"
-FULLRESTORESCRIPT="$GITHUBRAW/restore_full.sh"
+SILEORESTORESCRIPT="$GITHUBRAW/xyz.skylarmccauley.sourceutility/sourceutility/res/restore_sileo.sh"
+CYDIARESTORESCRIPT="$GITHUBRAW/xyz.skylarmccauley.sourceutility/sourceutility/res/restore_cydia.sh"
+ZEBRARESTORESCRIPT="$GITHUBRAW/xyz.skylarmccauley.sourceutility/sourceutility/res/restore_zebra.sh"
+FILELIST="$GITHUBRAW/file.list"
 
 ZEBRADIR="/private/var/mobile/Documents/xyz.willy.Zebra"
 ZEBRASOURCES="$ZEBRADIR/sources.list"
@@ -96,6 +95,20 @@ pause(){
     }
 coming_soon(){ 
     read -p "This feature is coming soon. Press [Enter/Return] to continue" fackEnterKey 
+}
+check_for_cydia_deb() {
+    if [ ! -f ./cydia.deb ]; then
+        echo "Cydia could not be downloaded... You can run ${RED}Reinstall Cydia${STD} from the Patches Menu."
+        pause
+        start_menu
+    fi
+}
+check_for_sileo_deb() {
+    if [ ! -f ./sileo.deb ]; then
+        echo "Sileo could not be downloaded... You can run ${RED}Reinstall Sileo${STD} from the Patches Menu."
+        pause
+        start_menu
+    fi
 }
 check_if_root(){
     if [[ $EUID -ne 0 ]]; then
@@ -153,14 +166,111 @@ check_connection() {
         }
             echo "Checking ability to connect to '$URL'..."
             
-            case "$(curl -s --max-time 2 -I $URL | sed 's/^[^ ]*  *\([0-9]\).*/\1/; 1q')" in
+            case "$(curl --insecure -s --max-time 2 -I $URL | sed 's/^[^ ]*  *\([0-9]\).*/\1/; 1q')" in
         [23]) cont ;;
         5) ex ;;
         *) ex;;
             esac
     
 }
+reinstall_sileo() {
+    cd $SOURCEUTILITYDIR
+    check_if_root
+    killall Cydia
+    killall Sileo
+    echo "Checking for tmp directory..."
+    if [ ! -d $SOURCEUTILITYTMP ]; then
+    echo "Creating tmp directory..."
+        mkdir $SOURCEUTILITYTMP
+    fi
+    cd $SOURCEUTILITYTMP
 
+    REPO_EL="https://electrarepo64.coolstar.org"
+    REPO_U0_DARK="https://diatr.us/apt"
+
+    u0_dark() {
+        check_connection $REPO_U0_DARK
+        echo "Downloading Misceo Packages..."
+        curl --insecure -o "./$U0DARKTMP" "$REPO_U0_DARK/Packages" && sleep 1
+
+        touch "./$SILEOTMP"
+
+        awk '/^Package: $SILEOBUNDLEID$/ {s=NR;next} s && NR<=s+15' "./$U0DARKTMP" &> $SILEOTMP
+        SILEOURL=$REPO_U0_DARK/$(awk -F'Filename:' '{print $2}' $SILEOTMP)
+        SILEOURL_CONDENSED="$(echo -e "${SILEOURL}" | tr -d '[:space:]')"
+        rm -f "./$SILEOTMP"
+        
+        echo "Downloading latest version of Sileo..."
+        curl --silent --insecure -o ./sileo.deb $SILEOURL_CONDENSED
+
+        check_for_sileo_deb
+
+        echo "Installing..."
+        dpkg -i ./sileo.deb
+
+        echo "Running uicache"
+        uicache --all
+        echo "Cleaning up..." 
+        rm -f ./sileo.deb
+        rm -f "./$U0DARKTMP"
+        rm -f "./$SILEOTMP"
+        cd /
+        echo "Completed installation process for Sileo. You may want to run ldrestart after this script has concluded. "
+        pause
+        start_menu
+    }
+    el() {
+        check_connection $REPO_EL
+        echo "Downloading Misceo Packages..."
+        curl --insecure -o "./$ELECTRATMP" "$REPO_EL/Packages" && sleep 1
+
+        touch "./$SILEOTMP"
+
+        awk '/^Package: $SILEOBUNDLEID$/ {s=NR;next} s && NR<=s+15' "./$ELECTRATMP" &> $SILEOTMP
+        SILEOURL=$REPO_EL/$(awk -F'Filename:' '{print $2}' $SILEOTMP)
+        SILEOURL_CONDENSED="$(echo -e "${SILEOURL}" | tr -d '[:space:]')"
+        rm -f "./$SILEOTMP"
+        
+        echo "Downloading latest version of Sileo..."
+        curl --silent --insecure -o ./sileo.deb $SILEOURL_CONDENSED
+
+        check_for_sileo_deb
+
+        echo "Installing..."
+        dpkg -i ./sileo.deb
+
+        echo "Running uicache"
+        uicache --all
+        echo "Cleaning up..." 
+        rm -f ./sileo.deb
+        rm -f "./$ELECTRATMP"
+        rm -f "./$SILEOTMP"
+        cd /
+        echo "Completed installation process for Sileo. You may want to run ldrestart after this script has concluded. "
+        pause
+        start_menu
+    }
+    which_sileo() {
+    clear
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    echo -e "1. diatr.us/apt (Unc0ver Dark)"
+    echo -e "2. electrarepo64.coolstar.org (Electra)"
+    echo "0. Exit"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    }
+    read_sileo_options() {
+        local choice
+        read -p "Where would you like to download Sileo from? [ 0 - 2 ] " choice
+        case $choice in
+            1) u0_dark ;; 
+            2) el ;;
+            0) start_menu;;
+            *) echo -e "${RED}Invalid Option...${STD}" && sleep 2
+        esac
+    }
+    which_sileo
+    read_sileo_options
+}
 reinstall_cydia() {
     
     cd $SOURCEUTILITYDIR
@@ -174,14 +284,14 @@ reinstall_cydia() {
     fi
     cd $SOURCEUTILITYTMP
     
-    REPO_U0="https://apt.bingner.com"
-    REPO_EL="https://electrarepo64.coolstar.org"
-    REPO_U0_DARK="https://diatr.us/apt"
+    REPO_U0="https://apt.bingner.com/"
+    REPO_EL="https://electrarepo64.coolstar.org/"
+    REPO_U0_DARK="https://diatr.us/apt/"
     
     u0() {
         check_connection $REPO_U0
         echo "Downloading Elucubratus Packages..."
-        curl -o "./$U0TMP" "$REPO_U0/Packages" && sleep 1
+        curl --insecure -o "./$U0TMP" "$REPO_U0/Packages" && sleep 1
 
         touch "./$CYDIATMP"
 
@@ -191,13 +301,15 @@ reinstall_cydia() {
         rm -f "./$CYDIATMP"
         
         echo "Downloading latest version of Cydia..."
-        curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
+        curl --silent --insecure -o ./cydia.deb $CYDIAURL_CONDENSED
+
+        check_for_cydia_deb
 
         echo "Installing..."
         dpkg -i ./cydia.deb
 
         echo "Running uicache"
-        uicache
+        uicache --all
         echo "Cleaning up..." 
         rm -f ./cydia.deb
         rm -f "./$U0TMP"
@@ -210,7 +322,7 @@ reinstall_cydia() {
     u0_dark() {
         check_connection $REPO_U0_DARK
         echo "Downloading Misceo Packages..."
-        curl -o "./$U0TMP" "$REPO_U0_DARK/Packages" && sleep 1
+        curl --insecure -o "./$U0TMP" "$REPO_U0_DARK/Packages" && sleep 1
 
         touch "./$CYDIATMP"
 
@@ -220,13 +332,15 @@ reinstall_cydia() {
         rm -f "./$CYDIATMP"
         
         echo "Downloading latest version of Cydia..."
-        curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
+        curl --silent --insecure -o ./cydia.deb $CYDIAURL_CONDENSED
+
+        check_for_cydia_deb
 
         echo "Installing..."
         dpkg -i ./cydia.deb
 
         echo "Running uicache"
-        uicache
+        uicache --all
         echo "Cleaning up..." 
         rm -f ./cydia.deb
         rm -f "./$U0TMP"
@@ -239,7 +353,7 @@ reinstall_cydia() {
     el() {
         check_connection $REPO_EL
         echo "Downloading Electra Packages..."
-        curl -o "./$ELECTRATMP" "$REPO_EL/Packages" && sleep 1
+        curl --insecure -o "./$ELECTRATMP" "$REPO_EL/Packages" && sleep 1
 
         touch "./$CYDIATMP"
 
@@ -249,13 +363,15 @@ reinstall_cydia() {
         rm -f "./$CYDIATMP"
         
         echo "Downloading latest version of Cydia..."
-        curl --silent -o ./cydia.deb $CYDIAURL_CONDENSED
-
+        curl --silent --insecure -o ./cydia.deb $CYDIAURL_CONDENSED
+        
+        check_for_cydia_deb
+        
         echo "Installing..."
         dpkg -i ./cydia.deb
 
         echo "Running uicache"
-        uicache
+        uicache --all
         echo "Cleaning up..." 
         rm -f ./cydia.deb
         rm -f "./$ELECTRATMP"
@@ -277,7 +393,7 @@ reinstall_cydia() {
     }
     read_cydia_options() {
         local choice
-        read -p "Where would you like to download Cydia from? [ 0 - 2 ] " choice
+        read -p "Where would you like to download Cydia from? [ 0 - 3 ] " choice
         case $choice in
             1) u0 ;;
             2) u0_dark ;; 
@@ -288,57 +404,6 @@ reinstall_cydia() {
     }
     which_cydia
     read_cydia_options
-}
-reinstall_sileo() {
-
-    cd $SOURCEUTILITYDIR
-    check_if_root
-    killall Cydia
-    killall Sileo
-    echo "Checking for tmp directory..."
-    if [ ! -d $SOURCEUTILITYTMP ]; then
-    echo "Creating tmp directory..."
-        mkdir $SOURCEUTILITYTMP
-    fi
-    cd $SOURCEUTILITYTMP
-    REPO_EL="https://electrarepo64.coolstar.org"
-    CYDIADL_EL="$REPO_EL/debs/cydia_2.1-1_iphoneos-arm.deb"
-
-    el() {
-        echo "Downloading Electra Packages file..."
-        curl -o "./$ELECTRATMP" "$REPO_EL/Packages" && sleep 1
-
-        touch "./$SILEOTMP"
-
-        awk '/^Package: org.coolstar.sileo$/ {s=NR;next} s && NR<=s+15' "./$ELECTRATMP" &> $SILEOTMP
-        SILEOURL=https://electrarepo64.coolstar.org/$(awk -F'Filename:' '{print $2}' $SILEOTMP)
-        SILEOURL_CONDENSED="$(echo -e "${SILEOURL}" | tr -d '[:space:]')"
-        rm -f "./$SILEOTMP"
-        
-        echo "Downloading latest version of Sileo..."
-        curl --silent -o ./sileo.deb $SILEOURL_CONDENSED
-
-        echo "Installing..."
-        dpkg -i ./sileo.deb
-
-        echo "Cleaning up..."
-        rm -f "./$ELECTRATMP"
-        rm -f ./sileo.deb
-
-        echo "Running uicache"
-        uicache
-        kill_springboard
-        exit 1;
-    }
-        echo "This will only work for users with Electra11, Electra12, or unc0ver dark."
-        read -p "Would you like to continue? [Y/N] " -n 1 -r
-        echo    # (optional) move to a new line
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            el
-        else
-            start_menu
-        fi
-
 }
 run_diatrus_cydia_patch() {
     check_if_root
@@ -370,6 +435,13 @@ run_diatrus_cydia_patch() {
                 chown 0:0 /Applications/Cydia.app/Cydia
 
                 echo "Patched!" && sleep 2
+}
+fix_source_perms() {
+    echo "Fixing Cydia List Perms..."
+    chown root:wheel $CYDIAPREFS
+    chowm root:wheel $CYDIASOURCESD
+    chown root:wheel $SOURCELISTSCYDIAD
+    chown root:wheel /Applications/Cydia.app/Cydia
 }
 patch_sileo_sources() {
     if [ ! -f $SILEOSOURCELISTCACHE ]; then
@@ -423,50 +495,169 @@ patch_sileo_sources() {
     pause
     start_menu
 }
-remove_lists_sources() {
-    echo ""
-    echo ""
-    echo ""
-    echo -e "This is a dangerous procedure. You ${RED}will lose all Cydia & Sileo sources/lists${STD} after executing this."
-    read -p "Are you sure you want to continue? [Y/N] " -n 1 -r
+update_resources() {
+    echo "Preparing..."
+
+    check_connection $FILELIST
+
+    cd $SOURCEUTILITYDIR
+    mkdir updatetemp
+    cd updatetemp
+
+    curl --insecure --silent -o ./file.list $FILELIST
+    if [ ! -r ./file.list ]; then
+        echo "file.list did not download correctly..."
+        pause
+        start_menu
+    fi
+
+    mkdir files
+    cd files
+
+    echo "Downloading new resources..."
+
+    while read -r line; do
+    # Reading each line
+
+    fname=`basename $line`
+    echo "Downloading $fname ..."
+
+    curl --insecure --silent -o ./$fname $line
+    done < ../file.list
+
+    echo "Installing new sources..."
+
+    rm -rfv /sourceutility/res/
+    mkdir /sourceutility/res
+    cd ..
+    cp -afv "files/." "/sourceutility/res/"
+
+    newver="$(cat /sourceutility/res/res.ver)"
+
+    echo "Installed v$newver !"
+
+    pause
+    echo "Cleaning up..."
+    cd $SOURCEUTILITYDIR
+    rm -rf updatetemp
+}
+purge_sources() {
+
+    ## Purge Functions
+
+    sileo() {
+        read -p "Would you like to purge your Sileo Sources? [Y/N] " -n 1 -r
+        echo    # (optional) move to a new line
+        if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+            show_purge_options
+            read_purge_options
+        fi
+
+        echo "Removing Sileo Sources Cache..."
+        rm -fv $SILEOSOURCELISTCACHE
+        echo "Removing Sileo Sources"
+        rm -fv $SILEOSOURCELIST
+        echo "Purging APT Lists..."
+        rm -rfv $APTLISTS
+        echo "Done!"
+        pause
+        show_purge_options
+        read_purge_options
+    }
+    cydia() {
+        read -p "Would you like to purge your Cydia Sources? [Y/N] " -n 1 -r
+        echo    # (optional) move to a new line
+        if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+            show_purge_options
+            read_purge_options
+        fi
+        echo "Removing Cydia Preferences..."
+        rm -fv $CYDIAPREFS
+        echo "Purging Cydia Cache..."
+        rm -rfv $CYDIACACHEDIR
+        echo "Removing Cydia Sources..."
+        rm -rfv $CYDIASOURCESD
+        rm -rfv $SOURCELISTSCYDIAD
+        echo "Purging APT Lists..."
+        rm -rfv $APTLISTS
+        echo -e "This utility breaks Cydia.app after a purge for some. ${RED}Reinstalling Cydia${STD} seems to fix this issue."
+                    read -p "Would you like to Reinstall Cydia? [Y/N] " -n 1 -r
                         echo    # (optional) move to a new line
                         if [[ $REPLY =~ ^[Yy]$ ]]; then
-                            read -p "Are you REALLY sure you want to continue? [Y/N] " -n 1 -r
-                                echo    # (optional) move to a new line
-                                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                                    echo -e "Type '${RED}leavemealone${STD}' (ofc w/ out the quotes) and press enter to proceed:"
-                                        read msg
-
-                                        if [ $msg = "leavemealone" ]; then
-                                            killall Cydia
-                                            killall Sileo
-                                            echo -e "${RED}Deleting target sources..."
-                                            rm -rf $CYDIASOURCES
-                                            echo -e "${RED}Deleting Cydia cache..."
-                                            rm -rf $CYDIASOURCESCACHE
-                                            rm -rf $MORECYDIACACHE
-                                            echo -e "${RED}Deleting Cydia lists..."
-                                            rm -rf $CYDIALISTS
-                                            echo -e "${RED}Deleting Cydia lists.bak ..."
-                                            rm -rf "${CYDIALISTS}.bak"
-                                            echo -e "${RED}Deleting Cydia Preferences..."
-                                            rm -rf $CYDIAPREFS
-                                            echo -e "${RED}Deleting Sileo sources..."
-                                            rm -rf $SOURCELISTS
-                                            echo -e "${RED}Deleting contents of apt directory... (excluding the lock file)"
-                                            find $APTDIR -type f -not -name $LOCKFILE
-                                            echo -e "${RED}Finished Purging Cydia Lists and Sources!${STD}"
-                                        else
-                                            echo "You didn't type 'leavemealone' correctly..."
-                                            pause
-                                            start_menu
-                                        fi
-                                else
-                                    start_menu
-                                fi
+                            reinstall_cydia
                         else
-                            start_menu
+                        echo "You can run ${RED}Reinstall Cydia${STD} from the Patches Menu"
+                        pause
+                        start_menu
                         fi
+        echo -e "After reinstalling Cydia, you may need to run a patch that fixes duplicate sources. This may only be needed if you are using Sileo alongside Cydia. Your tweaks and sources will not be erased."
+                    read -p "Would you like to patch Cydia? [Y/N] " -n 1 -r
+
+                    echo    # (optional) move to a new line
+                        if [[ $REPLY =~ ^[Yy]$ ]]; then
+                            run_diatrus_cydia_patch
+                        else
+                        echo -e "You can run ${RED}Patch Cydia${STD} from the Patches Menu"
+                        pause
+                        start_menu
+                        fi
+
+        echo "Done!"
+        pause
+        show_purge_options
+        read_purge_options
+    }
+    zebra() {
+        read -p "Would you like to purge your Zebra Sources? [Y/N] " -n 1 -r
+        echo    # (optional) move to a new line
+        if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+            show_purge_options
+            read_purge_options
+        fi
+        echo "Purging Zebra Directory..."
+        rm -rfv $ZEBRADIR
+        echo "Zebra doesn't require me to do much. I like when software doesn't scatter its files in a ton of directories. (Looking at you Cydia)"
+        echo "Done!"
+        pause
+        show_purge_options
+        read_purge_options
+    }
+    show_purge_options() {
+	clear
+    echo ""
+    echo ""
+	echo ""
+    echo ""
+    echo ""
+    echo ""
+    echo "Select what sources you would like to remove."
+	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	echo -e "1. ${RED}Purge Sileo Sources${STD}"
+    echo -e "2. ${RED}Purge Cydia Sources${STD}"
+    echo -e "3. ${RED}Purge Zebra Sources${STD}"
+    echo -e "4. ${GREEN}Main Menu${STD}"
+    echo -e "5. ${GREEN}Utilities Menu${STD}"
+    echo -e "6. ${GREEN}Patches Menu${STD}"
+	echo "0. Exit"
+    echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    }
+    read_purge_options(){
+        local choice
+        read -p "Enter choice [ 0 - 6 ] " choice
+        case $choice in
+            1) sileo ;;
+            2) cydia ;;
+            3) zebra ;;  
+            4) start_menu ;; 
+            5) utilies_menu ;; 
+            6) patch_menu ;; 
+            0) exit 0;;
+            *) echo -e "${RED}Invalid Option...${STD}" && sleep 2
+        esac
+    }
+    show_purge_options
+    read_purge_options
+
 }
 delete_all_source_backups(){
     check_if_root
@@ -563,190 +754,19 @@ delete_sileo_source_backups() {
         start_menu
         fi
 }
-backup_all_sources() {
-        # sourcebackup by TheHacker
-        JB=null
-    init
-
-
-
-    echo "This option will only work if you have both Cydia and Sileo installed."
-    read -p "Do you wish to continue? [Y/N] " -n 1 -r
-            echo    # (optional) move to a new line
-            if [[ $REPLY =~ ^[Yy]$ ]]; then
-
-                ## Actual backup script
-                cont_bas(){
-                        echo -e "It is important that you do ${RED}NOT${STD} terminate this script while you are backing up your sources."
-                        pause
-
-                        if [ -w $SOURCEFULLBACKUPZIP ]; then
-                            echo -e "${RED}Backup from earlier today detected!${STD}"
-                            read -p "Would you like to remove this earlier backup? [Y/N] " -n 1 -r
-                                echo    # (optional) move to a new line
-                                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                                rm -rfv $SOURCEFULLBACKUPZIP
-                                else
-                                echo "The older backup must be removed to continue. Returning to Start Menu..."
-                                pause
-                                start_menu
-                                fi
-                        fi
-                        echo "Checking read permissions needed for backup..."
-
-                        {
-
-                        if [ ! -r $CYDIAPREFS ]; then
-                            echo "Cannot read $CYDIAPREFS. Try running as root?"
-                            pause
-                            start_menu
-                        fi
-                        if [ ! -r $CYDIACACHEDIR ]; then
-                            echo "Cannot read $CYDIACACHEDIR. Try running as root?"
-                            pause
-                            start_menu
-                        fi
-                        if [ ! -r $SOURCELISTS ]; then
-                            echo "Cannot read $SOURCELISTS. Try running as root?"
-                            pause
-                            start_menu
-                        fi
-
-                        echo "Read permissions seem to be okay! Continuing with full backup..." && sleep 2
-                        echo "Removing old backup directory..."
-                        rm -rfv $SOURCEBACKUPDIR
-                        ## Creating dirs for backing up files
-                        echo "Creating new backup directory"
-                        mkdir $SOURCEBACKUPDIR
-                        echo "Creating backup directory for Cydia Preferences... (Sources are stored here)"
-                        mkdir $CYDIAPREFSBACKUPDIR
-                        echo "Creating backup directory for Cydia Cache... (Sources are also stored here)"
-                        mkdir $CYDIACACHEBACKUPDIR
-                        echo "Creating backup directory for Source Lists... (Sileo also stores its sources here)"
-                        mkdir $SOURCELISTSBACKUPDIR
-                        if [ -r $SOURCELISTSCYDIAD ]; then
-                        echo "Creating backup directory for $SOURCELISTSCYDIAD... (Default Cydia source directory)"
-                        mkdir $SOURCELISTSCYDIADBACKUPDIR
-                        else
-                        echo "Cannot read $SOURCELISTSCYDIAD... Continuing backup without"
-                        fi
-                        if [ -r $CYDIASOURCESD ]; then
-                        echo "Creating backup directory for $CYDIASOURCESD... (Default Cydia source directory)"
-                        mkdir $CYDIASOURCESDBACKUPDIR
-                        else
-                        echo "Cannot read $CYDIASOURCESD... Continuing backup without..."
-                        fi
-
-                        echo "Creating backup directory for Sileo Sources Cache..."
-                        mkdir $SILEOLISTCACHEBACKUP
-                        echo "Successfully created backup directories!" && sleep 2
-                        killall Cydia
-                        killall Sileo
-                        ## Copying files to backup dirs
-                        echo "Copying Cydia Preferences to $CYDIAPREFSBACKUPDIR..."
-                        cp -rfv $CYDIAPREFS $CYDIAPREFSBACKUPDIR
-                        echo "Copying Cydia Cache to $CYDIACACHEBACKUPDIR..."
-                        cp -rfv $CYDIASOURCESCACHE $CYDIACACHEBACKUPDIR
-                        cp -rfv $CYDIALISTCACHE $CYDIACACHEBACKUPDIR
-                        echo "Copying Source Lists to $SOURCELISTSBACKUPDIR..."
-                        cp -afv "$SOURCELISTS/." "$SOURCELISTSBACKUPDIR/"
-                        if [ -r $SOURCELISTSCYDIAD ]; then
-                        echo "Copying 'sources.cydiad' to $SOURCELISTSCYDIADBACKUPDIR"
-                        cp -afv "$SOURCELISTSCYDIAD/." "$SOURCELISTSCYDIADBACKUPDIR/"
-                        else
-                        echo "Cannot read $SOURCELISTSCYDIAD... Continuing backup without"
-                        fi
-                        if [ -r $CYDIASOURCESD ]; then
-                        echo "Copying 'sources.cydiad' to $CYDIASOURCESDBACKUPDIR"
-                        cp -afv "$CYDIASOURCESD/." "$CYDIASOURCESDBACKUPDIR/"
-                        else
-                        echo "Cannot read $CYDIASOURCESD... Continuing backup without"
-                        fi
-                        echo "Copying Sileo Source List Cache to $SILEOLISTCACHEBACKUP"
-                        cp -rfv $SILEOSOURCELISTCACHE $SILEOLISTCACHEBACKUP
-                        echo "Successfully copied files to backup directories!" && sleep 2
-                        cd $SOURCEUTILITYDIR
-                        echo "Adding backup script..."
-                        curl -o ./backups/restore.sh $FULLRESTORESCRIPT
-                    
-                        if [ -f ./backups/restore.sh ]; then
-                            touch ./backups/restore.sh
-                            chmod a+x ./backups/restore.sh
-                        fi
-                        echo "Zipping backup files..."
-                        zip -r9 $SFBZRELATIVE $SBDRELATIVE
-                        cd /
-                        echo "Cleaning up..."
-                        rm -rfv $SOURCEBACKUPDIR
-                        } || {
-                            echo -e "${RED}An exception occurred... Try running as root?${STD}"
-                        }
-
-                        echo "Finished backing up sources! You can find the archive at " $SOURCEFULLBACKUPZIP
-            }
-            
-            ## Jailbreak Detector
-
-            check_for_cydia() {
-                echo "Checking if Cydia is installed..."
-                dpkg-query -W -f='${Status}\n' $CYDIABUNDLEID | grep 'install ok' &> /dev/null
-                if [ $? == 0 ]; then
-                    echo "$CYDIABUNDLEID is installed!"
-                else            
-                ## If Cydia is not installed, this process will exit to start_menu since it needs both Cydia and Sileo to be installed.
-                    echo "$CYDIABUNDLEID is not installed!" && sleep 2
-                    echo "If you wish to backup your sources for only Sileo, run the ${GREEN}Backup Sileo Sources${STD} option from the ${GREEN}Backup Menu${STD}."
-                    pause
-                    start_menu
-                fi
-            }
-            check_for_sileo() {
-                echo "Checking if $SILEOBUNDLEID_U0 is installed..."
-                dpkg-query -W -f='${Status}\n' $SILEOBUNDLEID_U0 | grep 'install ok' &> /dev/null
-                if [ $? == 0 ]; then
-                ## org.juulstar.sileo is the bundle id for Sileo for unc0ver by Diatrus
-                JB="u0"
-                else
-                    echo "Checking if $SILEOBUNDLEID_EL is installed..."
-                    dpkg-query -W -f='${Status}\n' $SILEOBUNDLEID_EL | grep 'install ok' &> /dev/null
-                        if [ $? == 0 ]; then
-                        ## org.coolstar.sileo is the bundle id for Sileo on Electra
-                        JB="el"
-                        else            
-                        ## Both org.juulstar.sileo and org.coolstar.sileo could not be found. Therefore, Sileo is not installed.
-                        JB="null"
-                        fi
-                fi
-            }
-            check_for_cydia
-            check_for_sileo
-            echo $JB
-
-            
-            if [ $JB == "null" ]; then
-                echo "An error occurred while trying to query installed packages!"
-                pause
-                start_menu
-            fi
-            if [ $JB == "u0" ]; then
-                echo "Unc0ver Detected"
-                cont_bas
-            fi
-            if [ $JB == "el" ]; then
-                echo "Electra Detected"
-                cont_bas
-            fi
-
-            else
-                pause
-                start_menu
-            fi
-
-
-        pause
-        start_menu
-}
 backup_cydia_sources() {
+
+    if [ -d /electra ]; then
+        echo "${RED}ELECTRA DETECTED${STD}"
+        echo "${RED}WARNING:${STD} During my testing on iOS 11 (Electra1141), this tool broke Cydia and I was unable to fix it. Restoring RootFS may not even fix Cydia."
+        echo "Unc0ver and Unc0ver Dark users are fine, but Electra11 users should not try restoring Cydia Sources..."
+        read -p "Are you sure you still want to continue?"
+        echo
+        if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+            start_menu
+        fi
+    fi
+
     echo "This option will only backup Cydia Sources."
     read -p "Do you wish to continue? [Y/N]" -n 1 -r
         echo
@@ -759,7 +779,7 @@ backup_cydia_sources() {
                     if [[ $REPLY =~ ^[Yy]$ ]]; then
                     rm -rfv $CYDIASOURCEBACKUPZIP
                     else
-                    echo "The older backup must be removed to continue. Returning to Start Menu..."
+                    echo "The older backup must be removed to continue. Returning to Main Menu..."
                     pause
                     start_menu
                     fi
@@ -774,7 +794,7 @@ backup_cydia_sources() {
                 pause
                 start_menu
             fi
-            echo "Read permissions seem to be okay! Continuing with Cydia backup..." && sleep 2
+            echo "Read permissions seem to be okay! Continuing with Cydia backup..."
             echo "Removing old backup directory..."
             rm -rf $SOURCEBACKUPDIR
             ## Creating dirs for backing up files
@@ -792,19 +812,13 @@ backup_cydia_sources() {
             fi
             echo "Creating backup directory for Source Lists... (Users can put custom sources lists here)"
             mkdir $SOURCELISTSBACKUPDIR
-            if [ -r $SOURCELISTSCYDIAD ]; then
-            echo "Creating backup directory for $SOURCELISTSCYDIAD... (Default Cydia source directory)"
-            mkdir $SOURCELISTSCYDIADBACKUPDIR
-            else
-            echo "Cannot read $SOURCELISTSCYDIAD... Continuing backup without..."
-            fi
-            if [ -r $CYDIASOURCESD ]; then
-            echo "Creating backup directory for $CYDIASOURCESD... (Default Cydia source directory)"
-            mkdir $CYDIASOURCESDBACKUPDIR
-            else
-            echo "Cannot read $CYDIASOURCESD... Continuing backup without..."
-            fi
             
+            if [[ ! -r $CYDIASOURCESD && ! -r $SOURCELISTSCYDIAD ]]; then
+                echo "Cannot read Cydia Sources. Backup cannot continue!"
+                pause
+                start_menu
+            fi
+
             echo "Successfully created backup directories!" && sleep 2
             killall Cydia
             killall Sileo
@@ -817,12 +831,16 @@ backup_cydia_sources() {
             echo "Copying Source Lists to $SOURCELISTSBACKUPDIR..."
             rsync -aP --exclude=$SILEOSOURCENAME "$SOURCELISTS/" $SOURCELISTSBACKUPDIR
             if [ -r $SOURCELISTSCYDIAD ]; then
+            echo "Creating backup directory for $SOURCELISTSCYDIAD... (Default Cydia source directory)"
+            mkdir $SOURCELISTSCYDIADBACKUPDIR
             echo "Copying 'sources.cydiad' to $SOURCELISTSCYDIADBACKUPDIR"
             rsync -aP --exclude=$SILEOSOURCENAME "$SOURCELISTSCYDIAD/" $SOURCELISTSCYDIADBACKUPDIR
             else
             echo "Cannot read $SOURCELISTSCYDIAD... Continuing backup without"
             fi
             if [ -r $CYDIASOURCESD ]; then
+            echo "Creating backup directory for $CYDIASOURCESD... (Default Cydia source directory)"
+            mkdir $CYDIASOURCESDBACKUPDIR
             echo "Copying 'cydiasources.d' to $CYDIASOURCESDBACKUPDIR"
             rsync -aP --exclude=$SILEOSOURCENAME "$CYDIASOURCESD/" $CYDIASOURCESDBACKUPDIR
             else
@@ -830,12 +848,21 @@ backup_cydia_sources() {
             fi
             echo "Successfully copied all files to backup directories!" && sleep 2
             cd $SOURCEUTILITYDIR
-            curl -o ./backups/restore.sh $CYDIARESTORESCRIPT
-                    
-                    if [ -f ./backups/restore.sh ]; then
-                        touch ./backups/restore.sh
-                        chmod a+x ./backups/restore.sh
-                    fi
+
+            if [ -r /sourceutility/res/restore_cydia.sh ]; then
+                cp -fv /sourceutility/res/restore_cydia.sh ./backups/
+                mv ./backups/restore_cydia.sh ./backups/restore.sh
+            else
+                curl --insecure -o ./backups/restore.sh $CYDIARESTORESCRIPT
+            fi
+
+            curl --insecure -o ./backups/restore.sh 
+                
+            if [ -f ./backups/restore.sh ]; then
+                touch ./backups/restore.sh
+                chmod a+x ./backups/restore.sh
+            fi
+
 
             echo "Zipping backup files..."
             zip -r9 $CSBZRELATIVE $SBDRELATIVE
@@ -861,50 +888,57 @@ backup_sileo_sources() {
                                 if [[ $REPLY =~ ^[Yy]$ ]]; then
                                 rm -rfv $SILEOSOURCEBACKUPZIP
                                 else
-                                echo "The older backup must be removed to continue. Returning to Start Menu..."
+                                echo "The older backup must be removed to continue. Returning to Main Menu..."
                                 pause
                                 start_menu
                                 fi
             fi
 
-            dpkg-query -W -f='${Status}\n' 'org.*.sileo' | grep 'install ok' &> /dev/null
+            dpkg-query -W -f='${Status}\n' "$SILEOBUNDLEID" | grep 'install ok' &> /dev/null
                 if [ $? == 0 ]; then
-                    if [ ! -r $SILEOSOURCELISTCACHE ]; then
-                        echo "Could not read $SILEOSOURCELISTCACHE. Backup cannot continue!"
+                    if [[ ! -r $SILEOSOURCELISTCACHE && ! -r $SILEOSOURCELIST ]]; then
+                        echo "Could not read $SILEOSOURCELISTCACHE and $SILEOSOURCELIST. Backup cannot continue"
                         pause
                         start_menu
                     fi
                     echo "Read permissions seem to be okay... Continuing Sileo source backup..."
                     rm -rfv $SOURCEBACKUPDIR
-                    ## Creating dirs for backing up files
+                    ## Creating dirs and copying files for back up
                     echo "Creating new backup directory..."
                     mkdir $SOURCEBACKUPDIR
+                    ## Backing up Sileo Sources
                     if [ -r $SILEOSOURCELIST ]; then
                     echo "Creating backup directory for Sileo Sources..."
                     mkdir $SOURCELISTSBACKUPDIR
-                    else
-                        echo "Could not read $SILEOSOURCELIST. Continuing backup without..."
-                    fi
-                    echo "Creating backup directory for Sileo Sources Cache..."
-                    mkdir $SILEOLISTCACHEBACKUP
-                    echo "Successfully created backup directories!" && sleep 2
-                    killall Cydia
-                    killall Sileo
-                    ## Copying files to backup dirs
-                    if [ -r $SILEOSOURCELIST ]; then
                     echo "Copying $SILEOSOURCELIST to $SOURCELISTSBACKUPDIR..."
                     cp -rfv $SILEOSOURCELIST $SOURCELISTSBACKUPDIR
                     else
                         echo "Could not read $SILEOSOURCELIST. Continuing backup without..."
                     fi
+                    ## Backing up Sileo Source List Cache
+                    if [ -r $SILEOSOURCELISTCACHE ]; then
+                    echo "Creating backup directory for Sileo Sources Cache..."
+                    mkdir $SOURCELISTSCACHEBACKUPDIR
                     echo "Copying $SILEOSOURCELISTCACHE to $SILEOLISTCACHEBACKUP"
                     cp -rfv $SILEOSOURCELISTCACHE $SILEOLISTCACHEBACKUP
+                    else
+                        echo "Could not read $SILEOSOURCELISTCACHE . Continuing backup without..."
+                    fi
+                    echo "Successfully created backup directories!" && sleep 2
+                    killall Cydia
+                    killall Sileo
+                    
                     echo "Successfully copied all files to backup directories!" && sleep 2
                     cd $SOURCEUTILITYDIR
                     echo "Adding restore script to backup"
                     
-                    curl -o ./backups/restore.sh $SILEORESTORESCRIPT
-                    
+                    if [ -r /sourceutility/res/restore_sileo.sh ]; then
+                        cp -fv /sourceutility/res/restore_sileo.sh ./backups/
+                        mv ./backups/restore_sileo.sh ./backups/restore.sh
+                    else
+                        curl --insecure -o ./backups/restore.sh $SILEORESTORESCRIPT
+                    fi
+
                     if [ -f ./backups/restore.sh ]; then
                         touch ./backups/restore.sh
                         chmod a+x ./backups/restore.sh
@@ -939,7 +973,7 @@ backup_zebra_sources() {
                                 if [[ $REPLY =~ ^[Yy]$ ]]; then
                                 rm -rfv $ZEBRASOURCEBACKUPZIP
                                 else
-                                echo "The older backup must be removed to continue. Returning to Start Menu..."
+                                echo "The older backup must be removed to continue. Returning to Main Menu..."
                                 pause
                                 start_menu
                                 fi
@@ -972,12 +1006,21 @@ backup_zebra_sources() {
                 cp -afv "$ZEBRADIR/." $ZEBRABACKUPDIR
                 cd $SOURCEUTILITYDIR
                 echo "Adding restore script to backup"
-                curl -o ./backups/restore.sh $ZEBRARESTORESCRIPT
+
+                if [ -r /sourceutility/res/restore_zebra.sh ]; then
+                    cp -fv /sourceutility/res/restore_zebra.sh ./backups/
+                    mv ./backups/restore_zebra.sh ./backups/restore.sh
+                else
+                    curl --insecure -o ./backups/restore.sh $ZEBRARESTORESCRIPT
+                fi
+
+                curl --insecure -o ./backups/restore.sh 
                     
-                    if [ -f ./backups/restore.sh ]; then
-                        touch ./backups/restore.sh
-                        chmod a+x ./backups/restore.sh
-                    fi
+                if [ -f ./backups/restore.sh ]; then
+                    touch ./backups/restore.sh
+                    chmod a+x ./backups/restore.sh
+                fi
+
                 echo "Zipping backup files..."
                 zip -r9 $ZSBZRELATIVE $SBDRELATIVE
                 cd /
@@ -990,120 +1033,19 @@ backup_zebra_sources() {
         start_menu
         fi
 }
-restore_all_sources() {
-    
-    #sourcerestore by TheHacker
-        init
-        echo "This option will only work if you have both Cydia and Sileo installed."
-        read -p "Do you wish to continue? [Y/N] " -n 1 -r
-                echo    # (optional) move to a new line
-                if [[ $REPLY =~ ^[Yy]$ ]]; then
-                check_if_root
-    echo -e "It is important that you do ${RED}NOT${STD} terminate this script while you are restoring your backup."
-        pause
-        restore() {
-            cd $SOURCEUTILITYDIR
-            ls ./sourcebackup*.zip
-            echo "Enter the date of which backup you would like to restore: (Type 'exit' to leave)"
-                read backupDate
-
-                BACKUPTOUNZIP="$SOURCEUTILITYDIR/sourcebackup-$backupDate.zip"
-                BTURELATIVE="./sourcebackup-$backupDate.zip"
-
-            if [[ "$backupDate" = 'exit' || "$backupDate" = 'leave' || "$backupDate" = "cancel" || "$backupDate" = "stop" ]]; then
-            start_menu
-            fi
-
-            if [ -w $BTURELATIVE ]; then
-                
-                echo "Copying Backup to $SOURCEUTILITYTMP for contingency..."
-                cp -fv $BTURELATIVE $SOURCEUTILITYTMP
-                echo "Unzipping..."
-                unzip -o ${BTURELATIVE}
-                echo "Unzipped!"
-                echo "Checking r/w permissions needed for restore..."
-                if [ ! -r $CYDIAPREFS ]; then
-                    echo "Cannot read $CYDIAPREFS. Try running as root?"
-                    pause
-                    start_menu
-                fi
-                if [ ! -r $CYDIACACHEDIR ]; then
-                    echo "Cannot read $CYDIACACHEDIR. Try running as root?"
-                    pause
-                    start_menu
-                fi
-                if [ ! -r $SOURCELISTS ]; then
-                    echo "Cannot read $SOURCELISTS. Try running as root?"
-                    pause
-                    start_menu
-                fi
-                echo "R/W permissions seem to be okay! Continuing with restore..." && sleep 2
-                killall Cydia
-                killall Sileo
-                ## Copying backup files to their respective locations
-                echo "Copying Cydia Preferences Backup to $PREFSDIR"
-                cp -fv $CYDIAPREFSBACKUP $PREFSDIR
-                echo "Removing target Cydia Cache files..."
-                rm -rf "$CYDIACACHEDIR/lists"
-                rm -rf "$CYDIACACHEDIR/sources.list"
-                echo "Copying Cydia Cache Backup to $CYDIACACHEDIR"
-                cp -afv "$CYDIACACHEBACKUPDIR/." "$CYDIACACHEDIR/"
-                echo "Removing target Source Lists files..."
-                rm -rf "$SOURCELISTS"
-                if [ ! -d $SOURCELISTS ]; then
-                    mkdir $SOURCELISTS
-                fi
-                echo "Copying Source List Backup to $SOURCELISTS"
-                cp -afv "$SOURCELISTSBACKUPDIR/." "$SOURCELISTS/"
-                echo "Successfully copied backup files to their respective locations!"
-                rm -rfv $SOURCEBACKUPDIR
-                read -p "Would you like to delete the old backup $BTURELATIVE? [Y/N] " -n 1 -r
-                    echo    # (optional) move to a new line
-                    if [[ $REPLY =~ ^[Yy]$ ]]; then
-                        rm -fv $BTURELATIVE
-                    fi
-                echo "If the backup did not restore correctly, you can open the zip file in $SOURCEUTILITYTMP"
-                pause
-                
-                echo -e "This utility breaks Cydia.app after a restore for some. ${RED}Reinstalling Cydia${STD} seems to fix this issue. Your tweaks and sources will not be erased."
-                    read -p "Would you like to reinstall Cydia? [Y/N] " -n 1 -r
-                        echo    # (optional) move to a new line
-                        if [[ $REPLY =~ ^[Yy]$ ]]; then
-                            reinstall_cydia
-                        else
-                        echo "You can run ${RED}Reinstall Cydia${STD} from the Patches Menu"
-                        pause
-                        start_menu
-                        fi
-                echo -e "After reinstalling Cydia, you may need to run a patch that fixes duplicate sources. This is likely not needed on unc0ver dark or Electra. Your tweaks and sources will not be erased."
-                    read -p "Would you like to patch Cydia? [Y/N] " -n 1 -r
-
-                    echo    # (optional) move to a new line
-                        if [[ $REPLY =~ ^[Yy]$ ]]; then
-                            run_diatrus_cydia_patch
-                        else
-                        echo -e "You can run ${RED}Patch Cydia${STD} from the Patches Menu"
-                        pause
-                        start_menu
-                        fi
-                pause
-                kill_springboard
-                start_menu
-
-            else 
-            echo "Could not read $BTURELATIVE. Does it exist?"
-            pause
-            start_menu
-            fi
-        }
-        restore
-    
-	pause
-    start_menu
-
-                fi
-}
 restore_cydia_sources() {
+
+    if [ -d /electra ]; then
+        echo "${RED}ELECTRA DETECTED${STD}"
+        echo "${RED}WARNING:${STD} During my testing on iOS 11 (Electra1141), this tool broke Cydia and I was unable to fix it. Restoring RootFS may not even fix Cydia."
+        echo "Unc0ver and Unc0ver Dark users are fine, but Electra11 users should not try restoring Cydia Sources..."
+        read -p "Are you sure you still want to continue?"
+        echo
+        if ! [[ $REPLY =~ ^[Yy]$ ]]; then
+            start_menu
+        fi
+    fi
+    
     echo "This option will only restore Cydia Sources."
     read -p "Do you wish to continue? [Y/N]" -n 1 -r
         echo
@@ -1195,6 +1137,7 @@ restore_cydia_sources() {
 
                     echo "Finished restoring Cydia Sources!"
                     pause
+                    fix_source_perms
                     echo "Cleaning up..."
                     rm -rfv $SOURCEBACKUPDIR
                     read -p "Would you like to delete the old backup $BTURELATIVE? [Y/N] " -n 1 -r
@@ -1214,7 +1157,7 @@ restore_cydia_sources() {
                         pause
                         start_menu
                         fi
-                echo -e "After reinstalling Cydia, you may need to run a patch that fixes duplicate sources. This may only be needed if you are using both Sileo and Cydia on unc0ver. Your tweaks and sources will not be erased."
+                echo -e "After reinstalling Cydia, you may need to run a patch that fixes duplicate sources. This may only be needed if you are using both Sileo and Cydia on unc0ver or unc0ver dark. Your tweaks and sources will not be erased."
                     read -p "Would you like to patch Cydia? [Y/N] " -n 1 -r
 
                     echo    # (optional) move to a new line
@@ -1266,7 +1209,7 @@ restore_sileo_sources() {
                 fi
                 echo "r/w permissions seem to be okay!"
                 echo "Checking for Sileo installation..."
-                dpkg-query -W -f='${Status}\n' "org.*.sileo" | grep 'install ok' &> /dev/null
+                dpkg-query -W -f='${Status}\n' "$SILEOBUNDLEID" | grep 'install ok' &> /dev/null
                 if [ ! $? == 0 ]; then
                     read -p "Sileo is not installed. Do you still wish to continue? [Y/N]" -n 1 -r
                         echo
@@ -1280,12 +1223,25 @@ restore_sileo_sources() {
                 echo "Unzipping..."
                 unzip -o $BTURELATIVE
                 echo "Unzipped!"
+                if [[ ! -r $SILEOLISTCACHEBACKUP && ! -r $SILEOLISTBACKUP ]]; then
+                    echo "Cannot read backup directories. Backup is most likely corrupted!"
+                    pause
+                    start_menu
+                fi
                 killall Cydia
                 killall Sileo
-                echo "Copying Sileo Source Cache to $CACHEDIR ..."
-                cp -afv "$SILEOLISTCACHEBACKUP/." $CACHEDIR
-                echo "Copying Sileo Source List to $SOURCELISTS ..."
-                cp -afv "$SOURCELISTSBACKUPDIR/." $SOURCELISTS
+                if [ -r $SILEOLISTCACHEBACKUP ]; then
+                    echo "Copying Sileo Source Cache to $CACHEDIR ..."
+                    cp -afv "$SILEOLISTCACHEBACKUP/." $CACHEDIR
+                fi
+                if [ -r $SOURCELISTSBACKUPDIR ]; then
+                    if [ ! -d $SOURCELISTS ]; then
+                        mkdir $SOURCELISTS
+                    fi
+                    echo "Copying Sileo Source List to $SOURCELISTS ..."
+                    cp -afv "$SOURCELISTSBACKUPDIR/." $SOURCELISTS
+                fi
+                
                 echo "Finished restoring Sileo Sources!"
                 pause
                 echo "Cleaning up..."
@@ -1350,6 +1306,7 @@ restore_zebra_sources() {
                     mkdir $ZEBRADIR
                 fi
                 cp -afv "$ZEBRABACKUPDIR/." $ZEBRADIR
+                patch_zebra
                 echo "Finished restoring Zebra sources!" && sleep 2
                 echo "Cleaning up..."
                 rm -rfv $SOURCEBACKUPDIR
@@ -1362,24 +1319,36 @@ restore_zebra_sources() {
         start_menu
         fi
 }
-copy_cydia_to_sileo() {
-    coming_soon
-}
-copy_sileo_to_cydia() {
-    coming_soon
-}
-purge_ds_store() {
-    if [ ! -w $ROOT ]; then
-        # Root directory is not writeable
-        echo -e "${RED}Cannot write to root directory. Try running as root?${STD}"
-        pause
-        start_menu
+patch_zebra() {
+    echo "Patching Zebra Sources..."
+    mk_zebra_dir() {
+        mkdir $ZEBRADIR
+        chown mobile:mobile $ZEBRADIR
+    }
+    mk_zebra_sources() {
+        echo "deb https://skylarmccauley.xyz/ ./" > $ZEBRADIR/sources.list
+        chown mobile:mobile $ZEBRADIR/sources.list
+    }
+    if [ -d $ZEBRADIR ]; then
+        chown mobile:mobile $ZEBRADIR
+        if [ -d $ZEBRADIR/lists ]; then
+            chown mobile:mobile $ZEBRADIR/lists
+        fi
+        if [ -f $ZEBRADIR/sources.list ]; then
+            chown mobile:mobile $ZEBRADIR/sources.list
+        else
+            mk_zebra_sources
+        fi
+        if [ -f $ZEBRADIR/zebra.db ]; then
+            chown mobile:mobile $ZEBRADIR/zebra.db
+        fi
+    else
+        mk_zebra_dir
+        mk_zebra_sources
     fi
-    echo "Looking for .DS_STORE files to purge..."
-    cd /
-    find . -name '.DS_Store' -delete
-    echo "Finished pruging .DS_STORE files!"
-    pause
+}
+sync_cydia_zebra() {
+    coming_soon
 }
 hard_respring() {
     check_if_root
@@ -1404,8 +1373,46 @@ run_reboot() {
         start_menu
         fi
 }
+reload_icon_cache() {
+    # UICACHE OPTIONS
+    uicache_menu() {
+        clear
+        echo ""
+        echo ""
+        echo ""
+        echo ""
+        echo ""
+        echo ""
+        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"	
+        echo " sourceutility ${VER} by TheHacker "
+        echo ""
+        decide_if_tip
+        echo "~~ UI Cache Menu ~~"
+        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+        echo -e "1. uicache (Non-Electra)"
+        echo -e "2. uicache --all (Electra)"
+        echo -e "3. uicache --respring (Electra -- Respring After)"
+        echo -e "4. ${GREEN}Utilities Menu${STD}"
+        echo "0. Exit"
+        echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+    }
+    which_uicache() {
+        local choice
+        read -p "Enter choice [ 0 - 4 ] " choice
+        case $choice in
+            1) uicache ;;
+            2) uicache --all ;;
+            3) uicache --respring ;;
+            4) patch_menu ;;
+            0) exit 0;;
+            *) echo -e "${RED}Invalid Option...${STD}" && sleep 2
+        esac
+    }
+    uicache_menu
+    which_uicache
+}
 
-# START MENU
+# Main Menu
 show_menus() {
 	clear
     echo ""
@@ -1418,27 +1425,31 @@ show_menus() {
 	echo " sourceutility ${VER} by TheHacker "
     echo ""
     decide_if_tip
-    echo "~~ Start Menu ~~"
+    echo "~~ Main Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	echo -e "1. ${GREEN}Backup Sources${STD}"
     echo -e "2. ${GREEN}Restore Sources${STD}"
-#    echo -e "3. ${GREEN}Sync Sources${STD}"
-    echo -e "3. ${RED}Delete Backups${STD}"
-    echo -e "4. ${GREEN}Utilities Menu${STD}"
-    echo -e "5. ${GREEN}Patches Menu${STD}"
+    echo -e "3. ${GREEN}Sync Sources${STD}"
+    echo -e "4. ${GREEN}Purge Sources${STD}"
+    echo -e "5. ${RED}Delete Backups${STD}"
+    echo -e "6. Update Bundled Resources"
+    echo -e "7. ${GREEN}Utilities Menu${STD}"
+    echo -e "8. ${GREEN}Patches Menu${STD}"
 	echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
 read_options(){
 	local choice
-	read -p "Enter choice [ 0 - 5 ] " choice
+	read -p "Enter choice [ 0 - 8 ] " choice
 	case $choice in
 		1) backup_menu ;;
         2) restore_menu ;;
-        #3) sync_menu ;;
-		3) delete_backups_menu ;;
-        4) utilies_menu ;;
-        5) patch_menu ;;
+        3) sync_menu ;;
+        4) purge_sources ;;
+		5) delete_backups_menu ;;
+        6) update_resources ;;
+        7) utilies_menu ;;
+        8) patch_menu ;;
         
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
@@ -1460,40 +1471,32 @@ show_u_menus() {
     echo "~~ Other Utilities Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	echo "1. ldrestart"
-    echo "2. uicache"
+    echo "2. Reload Icon Cache"
     echo -e "3. ${RED}Reboot${STD}"
-    echo "4. Purge .DS_STORE files"
-    echo -e "5. ${RED}Purge Cydia & Sileo Lists/Sources${STD}"
-    echo "6. apt-get update"
-    echo -e "7. ${GREEN}Start Menu${STD}"
-    echo -e "8. ${GREEN}Patches Menu${STD}"
+    echo "4. apt-get update"
+    echo -e "5. ${GREEN}Main Menu${STD}"
+    echo -e "6. ${GREEN}Patches Menu${STD}"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
 read_u_options(){
 	local choice
-	read -p "Enter choice [ 0 - 8 ] " choice
+	read -p "Enter choice [ 0 - 6 ] " choice
 	case $choice in
 		1) { 
             hard_respring 
             } || { 
                 echo -e "${RED}Could not run ldrestart. Try running as root?${STD}" && sleep 2
                 } ;;
-        2) { 
-            uicache
-            } || { 
-                echo -e "${RED}Could not run uicache. Try running as root?${STD}" && sleep 2
-                } ;;
+        2) reload_icon_cache ;;
         3) {
             run_reboot
             } || {
                 echo -e "${RED}Could not reboot. Try running as root?${STD}" && sleep 2
             } ;;
-        4) purge_ds_store ;;
-		5) remove_lists_sources ;;
-        6) update_sources ;;
-		7) start_menu ;;
-        8) patch_menu ;;
+        4) update_sources ;;
+		5) start_menu ;;
+        6) patch_menu ;;
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
@@ -1515,25 +1518,27 @@ show_patch_menu() {
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	echo "1. Patch Cydia"
     echo "2. Patch Sileo Sources"
-    echo "3. Reinstall Cydia"
-    echo "4. Reinstall Sileo"
-    echo "5. Kill Springboard"
-    echo -e "6. ${GREEN}Start Menu${STD}"
-    echo -e "7. ${GREEN}Utilities Menu${STD}"
+    echo "3. Patch Zebra"
+    echo "4. Reinstall Cydia"
+    echo "5. Reinstall Sileo"
+    echo "6. Kill Springboard"
+    echo -e "7. ${GREEN}Main Menu${STD}"
+    echo -e "8. ${GREEN}Utilities Menu${STD}"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
 read_patch_options() {
     local choice
-	read -p "Enter choice [ 0 - 7 ] " choice
+	read -p "Enter choice [ 0 - 8 ] " choice
 	case $choice in
 		1) run_diatrus_cydia_patch ;;
         2) patch_sileo_sources ;;
-        3) reinstall_cydia ;;
-        4) reinstall_sileo ;;
-        5) kill_springboard ;;
-        6) start_menu ;;
-        7) utilies_menu ;;
+        3) patch_zebra ;;
+        4) reinstall_cydia ;;
+        5) reinstall_sileo ;;
+        6) kill_springboard ;;
+        7) start_menu ;;
+        8) utilies_menu ;;
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
@@ -1553,27 +1558,25 @@ show_backup_menu() {
     decide_if_tip
     echo "~~ Backup Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-	echo "1. Backup both Cydia & Sileo Sources"
-    echo "2. Backup Cydia Sources"
-    echo "3. Backup Sileo Sources"
-    echo "4. Backup Zebra Sources"
-    echo -e "5. ${GREEN}Start Menu${STD}"
-    echo -e "6. ${GREEN}Utilities Menu${STD}"
-    echo -e "7. ${GREEN}Patches Menu${STD}"
+    echo "1. Backup Cydia Sources"
+    echo "2. Backup Sileo Sources"
+    echo "3. Backup Zebra Sources"
+    echo -e "4. ${GREEN}Main Menu${STD}"
+    echo -e "5. ${GREEN}Utilities Menu${STD}"
+    echo -e "6. ${GREEN}Patches Menu${STD}"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
 read_backup_options() {
     local choice
-	read -p "Enter choice [ 0 - 7 ] " choice
+	read -p "Enter choice [ 0 - 6 ] " choice
 	case $choice in
-		1) backup_all_sources ;;
-        2) backup_cydia_sources ;;
-        3) backup_sileo_sources ;;
-        4) backup_zebra_sources ;;
-        5) start_menu ;;
-        6) utilies_menu ;;
-        7) patch_menu ;;
+        1) backup_cydia_sources ;;
+        2) backup_sileo_sources ;;
+        3) backup_zebra_sources ;;
+        4) start_menu ;;
+        5) utilies_menu ;;
+        6) patch_menu ;;
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
@@ -1593,27 +1596,25 @@ show_restore_menu() {
     decide_if_tip
     echo "~~ Restore Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-	echo "1. Restore both Cydia & Sileo Sources"
-    echo "2. Restore Cydia Sources"
-    echo "3. Restore Sileo Sources"
-    echo "4. Restore Zebra Sources"
-    echo -e "5. ${GREEN}Start Menu${STD}"
-    echo -e "6. ${GREEN}Utilities Menu${STD}"
-    echo -e "7. ${GREEN}Patches Menu${STD}"
+    echo "1. Restore Cydia Sources"
+    echo "2. Restore Sileo Sources"
+    echo "3. Restore Zebra Sources"
+    echo -e "4. ${GREEN}Main Menu${STD}"
+    echo -e "5. ${GREEN}Utilities Menu${STD}"
+    echo -e "6. ${GREEN}Patches Menu${STD}"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 }
 read_restore_options() {
     local choice
-	read -p "Enter choice [ 0 - 7 ] " choice
+	read -p "Enter choice [ 0 - 6 ] " choice
 	case $choice in
-		1) restore_all_sources ;;
-        2) restore_cydia_sources ;;
-        3) restore_sileo_sources ;;
-        4) restore_zebra_sources ;;
-        5) start_menu ;;
-        6) utilies_menu ;;
-        7) patch_menu ;;
+        1) restore_cydia_sources ;;
+        2) restore_sileo_sources ;;
+        3) restore_zebra_sources ;;
+        4) start_menu ;;
+        5) utilies_menu ;;
+        6) patch_menu ;;
         0) exit 0;;
 		*) echo -e "${RED}Invalid Option...${STD}" && sleep 2
 	esac
@@ -1637,7 +1638,7 @@ show_delete_menu() {
     echo -e "2. ${RED}Delete Cydia Source Backups${STD}"
     echo -e "3. ${RED}Delete Sileo Source Backups${STD}"
     echo -e "4. ${RED}Delete Zebra Source Backups${STD}"
-    echo -e "5. ${GREEN}Start Menu${STD}"
+    echo -e "5. ${GREEN}Main Menu${STD}"
     echo -e "6. ${GREEN}Utilities Menu${STD}"
     echo -e "7. ${GREEN}Patches Menu${STD}"
     echo "0. Exit"
@@ -1673,8 +1674,8 @@ show_sync_menu() {
     decide_if_tip
     echo "~~ Sync Sources Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    echo -e "1. Sync sources between Cydia and Zebra"
-    echo -e "2. ${GREEN}Start Menu${STD}"
+    echo -e "1. Sync Sources Between Cydia and Zebra"
+    echo -e "2. ${GREEN}Main Menu${STD}"
     echo -e "3. ${GREEN}Utilities Menu${STD}"
     echo -e "4. ${GREEN}Patches Menu${STD}"
     echo "0. Exit"
@@ -1695,7 +1696,7 @@ read_sync_options() {
 # ----------------------------------------------
 # Step #3: Trap CTRL+C, CTRL+Z and quit singles
 # ----------------------------------------------
-trap '' SIGINT SIGQUIT SIGTSTP
+#trap '' SIGINT SIGQUIT SIGTSTP
  
 # -----------------------------------
 # Step #4: Main logic - infinite loop
@@ -1731,20 +1732,13 @@ delete_backups_menu() {
     show_delete_menu
     read_delete_options
 }
-#sync_menu() {
-#    cd /
-#    show_sync_menu
-#    read_sync_options
-#}
+
+sync_menu() {
+    cd /
+    show_sync_menu
+    read_sync_options
+}
 while true
 do
-#    if [[ $@ == "--help" || $@ == "-h" ]]; then
-#        echo "Help argument detected."
-#        exit 0;
-#    fi
-#    if [ $@ -eq "0" ]; then
-     start_menu
-#     exit 0;
-#    fi
-#    echo "Arguemt '$@' does not exist"
+    start_menu
 done
