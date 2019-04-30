@@ -1352,7 +1352,7 @@ sync_cydia_zebra() {
 }
 hard_respring() {
     check_if_root
-    echo "Do NOT close terminate this script until your iOS Device has resprung."
+    echo "Do NOT terminate this script until your iOS Device has resprung."
     echo "Respringing..."
     ldrestart
     exit 0;
@@ -1364,7 +1364,7 @@ kill_springboard() {
     exit 0;
 }
 run_reboot() {
-    echo -e "You are about to reboot your iOS Device. If you are runnning anything ${RED}newer than iOS 9.1${STD}, you are likely using an semi-tethered jailbreak. This means that after a reboot, you will ${RED}temporarily lose your jailbreak${STD}."
+    echo -e "You are about to reboot your iOS Device. If you are runnning anything ${RED}newer than iOS 9.1${STD}, you are likely using a semi-tethered jailbreak. This means that after a reboot, you will ${RED}temporarily lose your jailbreak${STD}."
     read -p "Are you sure you want to continue? [Y/N] " -n 1 -r
         echo    # (optional) move to a new line
         if [[ $REPLY =~ ^[Yy]$ ]]; then
