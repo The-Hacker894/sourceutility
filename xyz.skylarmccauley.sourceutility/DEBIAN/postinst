@@ -41,8 +41,7 @@ newver="$(cat /sourceutility/res/res.ver)"
 echo "Installed v$newver !"
 
 echo "Cleaning up..."
-cd $SOURCEUTILITYDIR
-rm -rf updatetemp
+rm -rfv /sourceutility/updatetemp
 
 echo "Completed Installation!"
 
