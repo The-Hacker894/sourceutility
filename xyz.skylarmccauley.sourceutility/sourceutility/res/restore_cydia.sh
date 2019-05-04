@@ -2,7 +2,7 @@
 
 
 clear
-VER="1.0~7"
+VER="1.0~8"
 echo "sourceutility restore_cydia v$VER"
 
 DIRECTORY=`dirname $0`
@@ -36,15 +36,9 @@ if [[ $EUID -ne 0 ]]; then
         echo "Please run this script as root!" 
         exit 1;
 fi
-if [ -d /electra ]; then
-        echo "${RED}ELECTRA DETECTED${STD}"
-        echo "${RED}WARNING:${STD} During my testing on iOS 11 (Electra1141), this tool broke Cydia and I was unable to fix it. Restoring RootFS may not even fix Cydia."
-        echo "Unc0ver and Unc0ver Dark users are fine, but Electra11 users should not try restoring Cydia Sources..."
-        read -p "Are you sure you still want to continue?"
-        echo
-        if ! [[ $REPLY =~ ^[Yy]$ ]]; then
-            exit 1;
-        fi
+if [[ -d /electra || -d /chimera ]]; then
+            echo "Cydia is no longer supported by the Electra Team. This means that Cydia can't be supported by this tool until a concreate way of installing Cydia arises."
+            exit 1;;
 fi
 check_for_cydia_deb() {
     if [ ! -f ./cydia.deb ]; then

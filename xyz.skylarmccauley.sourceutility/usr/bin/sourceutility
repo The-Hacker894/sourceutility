@@ -75,6 +75,8 @@ ZEBRABUNDLEID="xyz.willy.zebra"
 ELECTRATMP="./elpckg"
 U0TMP="./elupckg"
 CYDIATMP="./cydpckg"
+U0DARKTMP="./u0drkpckg"
+CHIMERATMP="./chimerapckg"
 SILEOTMP="./sillyopckg"
 
 GITHUBRAW="https://raw.githubusercontent.com/The-Hacker894/sourceutility/master"
@@ -86,6 +88,11 @@ FILELIST="$GITHUBRAW/file.list"
 ZEBRADIR="/private/var/mobile/Documents/xyz.willy.Zebra"
 ZEBRASOURCES="$ZEBRADIR/sources.list"
 ZEBRABACKUPDIR="$SOURCEBACKUPDIR/zebra"
+
+REPO_U0="https://apt.bingner.com/"
+REPO_EL="https://electrarepo64.coolstar.org/"
+REPO_CH="https://repo.chimera.sh/"
+REPO_U0_DARK="https://diatr.us/apt/"
 
 # ----------------------------------
 # Step #2: User defined function
@@ -121,6 +128,11 @@ decide_if_tip() {
     echo "Tip: Entries with green labels have menus behind them!"
     echo ""
     fi
+}
+cydia_not_supported() {
+    echo "Cydia is no longer supported by the Electra Team. This means that Cydia can't be supported by this tool until a concreate way of installing Cydia arises."
+    pause
+    start_menu
 }
 init(){
         check_if_root
@@ -185,9 +197,6 @@ reinstall_sileo() {
     fi
     cd $SOURCEUTILITYTMP
 
-    REPO_EL="https://electrarepo64.coolstar.org"
-    REPO_U0_DARK="https://diatr.us/apt"
-
     u0_dark() {
         check_connection $REPO_U0_DARK
         echo "Downloading Misceo Packages..."
@@ -219,9 +228,40 @@ reinstall_sileo() {
         pause
         start_menu
     }
+    chimera() {
+        check_connection $REPO_CH
+        echo "Downloading Chimera Packages..."
+        curl --insecure -o "./$CHIMERATMP" "$REPO_CH/Packages" && sleep 1
+
+        touch "./$SILEOTMP"
+
+        awk '/^Package: $SILEOBUNDLEID$/ {s=NR;next} s && NR<=s+15' "./$CHIMERATMP" &> $SILEOTMP
+        SILEOURL=$REPO_CH/$(awk -F'Filename:' '{print $2}' $SILEOTMP)
+        SILEOURL_CONDENSED="$(echo -e "${SILEOURL}" | tr -d '[:space:]')"
+        rm -f "./$SILEOTMP"
+        
+        echo "Downloading latest version of Sileo..."
+        curl --silent --insecure -o ./sileo.deb $SILEOURL_CONDENSED
+
+        check_for_sileo_deb
+
+        echo "Installing..."
+        dpkg -i ./sileo.deb
+
+        echo "Running uicache"
+        uicache --all
+        echo "Cleaning up..." 
+        rm -f ./sileo.deb
+        rm -f "./$CHIMERATMP"
+        rm -f "./$SILEOTMP"
+        cd /
+        echo "Completed installation process for Sileo. You may want to run ldrestart after this script has concluded. "
+        pause
+        start_menu
+    }
     el() {
         check_connection $REPO_EL
-        echo "Downloading Misceo Packages..."
+        echo "Downloading Electra Packages..."
         curl --insecure -o "./$ELECTRATMP" "$REPO_EL/Packages" && sleep 1
 
         touch "./$SILEOTMP"
@@ -255,6 +295,7 @@ reinstall_sileo() {
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     echo -e "1. diatr.us/apt (Unc0ver Dark)"
     echo -e "2. electrarepo64.coolstar.org (Electra)"
+    echo -e "3. repo.chimera.sh (Chimera)"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     }
@@ -264,6 +305,7 @@ reinstall_sileo() {
         case $choice in
             1) u0_dark ;; 
             2) el ;;
+            3) chimera ;;
             0) start_menu;;
             *) echo -e "${RED}Invalid Option...${STD}" && sleep 2
         esac
@@ -284,11 +326,12 @@ reinstall_cydia() {
     fi
     cd $SOURCEUTILITYTMP
     
-    REPO_U0="https://apt.bingner.com/"
-    REPO_EL="https://electrarepo64.coolstar.org/"
-    REPO_U0_DARK="https://diatr.us/apt/"
-    
     u0() {
+
+        if [[ -d /electra || -d /chimera ]]; then
+            cydia_not_supported
+        fi
+
         check_connection $REPO_U0
         echo "Downloading Elucubratus Packages..."
         curl --insecure -o "./$U0TMP" "$REPO_U0/Packages" && sleep 1
@@ -320,6 +363,11 @@ reinstall_cydia() {
         start_menu
     }
     u0_dark() {
+
+        if [[ -d /electra || -d /chimera ]]; then
+            cydia_not_supported
+        fi
+
         check_connection $REPO_U0_DARK
         echo "Downloading Misceo Packages..."
         curl --insecure -o "./$U0TMP" "$REPO_U0_DARK/Packages" && sleep 1
@@ -350,54 +398,21 @@ reinstall_cydia() {
         pause
         start_menu
     }
-    el() {
-        check_connection $REPO_EL
-        echo "Downloading Electra Packages..."
-        curl --insecure -o "./$ELECTRATMP" "$REPO_EL/Packages" && sleep 1
-
-        touch "./$CYDIATMP"
-
-        awk '/^Package: cydia$/ {s=NR;next} s && NR<=s+15' "./$ELECTRATMP" &> $CYDIATMP
-        CYDIAURL=$REPO_EL/$(awk -F'Filename:' '{print $2}' $CYDIATMP)
-        CYDIAURL_CONDENSED="$(echo -e "${CYDIAURL}" | tr -d '[:space:]')"
-        rm -f "./$CYDIATMP"
-        
-        echo "Downloading latest version of Cydia..."
-        curl --silent --insecure -o ./cydia.deb $CYDIAURL_CONDENSED
-        
-        check_for_cydia_deb
-        
-        echo "Installing..."
-        dpkg -i ./cydia.deb
-
-        echo "Running uicache"
-        uicache --all
-        echo "Cleaning up..." 
-        rm -f ./cydia.deb
-        rm -f "./$ELECTRATMP"
-        rm -f "./$CYDIATMP"
-        cd /
-        echo "Completed installation process for Cydia. You may want to run ldrestart after this script has concluded. "
-        pause
-        start_menu
-    }
 
     which_cydia() {
     clear
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 	echo -e "1. apt.bingner.com (Unc0ver)"
     echo -e "2. diatr.us/apt (Unc0ver Dark)"
-    echo -e "3. electrarepo64.coolstar.org (Electra)"
     echo "0. Exit"
     echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     }
     read_cydia_options() {
         local choice
-        read -p "Where would you like to download Cydia from? [ 0 - 3 ] " choice
+        read -p "Where would you like to download Cydia from? [ 0 - 2 ] " choice
         case $choice in
             1) u0 ;;
             2) u0_dark ;; 
-            3) el ;;
             0) start_menu;;
             *) echo -e "${RED}Invalid Option...${STD}" && sleep 2
         esac
@@ -406,6 +421,11 @@ reinstall_cydia() {
     read_cydia_options
 }
 run_diatrus_cydia_patch() {
+
+    if [[ -d /electra || -d /chimera ]]; then
+            cydia_not_supported
+    fi
+
     check_if_root
     echo "Patching Cydia and Sileo..."
     killall Cydia
@@ -444,6 +464,13 @@ fix_source_perms() {
     chown root:wheel /Applications/Cydia.app/Cydia
 }
 patch_sileo_sources() {
+
+    if [[ -d /electra || -d /chimera ]]; then
+            echo "It seems you are running the Electra or Chimera jailbreak. This patch is not needed for those jailbreaks."
+            pause
+            start_menu
+    fi
+
     if [ ! -f $SILEOSOURCELISTCACHE ]; then
         echo $SILEOSOURCELISTCACHE "does not exist. Cannot patch Sileo Sources!"
         pause
@@ -756,15 +783,8 @@ delete_sileo_source_backups() {
 }
 backup_cydia_sources() {
 
-    if [ -d /electra ]; then
-        echo "${RED}ELECTRA DETECTED${STD}"
-        echo "${RED}WARNING:${STD} During my testing on iOS 11 (Electra1141), this tool broke Cydia and I was unable to fix it. Restoring RootFS may not even fix Cydia."
-        echo "Unc0ver and Unc0ver Dark users are fine, but Electra11 users should not try restoring Cydia Sources..."
-        read -p "Are you sure you still want to continue?"
-        echo
-        if ! [[ $REPLY =~ ^[Yy]$ ]]; then
-            start_menu
-        fi
+    if [[ -d /electra || -d /chimera ]]; then
+            cydia_not_supported
     fi
 
     echo "This option will only backup Cydia Sources."
@@ -1035,15 +1055,8 @@ backup_zebra_sources() {
 }
 restore_cydia_sources() {
 
-    if [ -d /electra ]; then
-        echo "${RED}ELECTRA DETECTED${STD}"
-        echo "${RED}WARNING:${STD} During my testing on iOS 11 (Electra1141), this tool broke Cydia and I was unable to fix it. Restoring RootFS may not even fix Cydia."
-        echo "Unc0ver and Unc0ver Dark users are fine, but Electra11 users should not try restoring Cydia Sources..."
-        read -p "Are you sure you still want to continue?"
-        echo
-        if ! [[ $REPLY =~ ^[Yy]$ ]]; then
-            start_menu
-        fi
+    if [[ -d /electra || -d /chimera ]]; then
+            cydia_not_supported
     fi
     
     echo "This option will only restore Cydia Sources."
@@ -1351,15 +1364,12 @@ sync_cydia_zebra() {
     coming_soon
 }
 hard_respring() {
-    check_if_root
-    echo "Do NOT close terminate this script until your iOS Device has resprung."
     echo "Respringing..."
     ldrestart
     exit 0;
 }
 kill_springboard() {
-    check_if_root
-    echo "Killing springboard..." && sleep 1
+    echo "Killing springboard..."
     killall SpringBoard
     exit 0;
 }
