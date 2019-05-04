@@ -2,10 +2,15 @@
 
 echo "Preparing..."
 
-mkdir /sourceutility
+if [ ! -d /sourceutility ]; then
+    mkdir /sourceutility
+fi
 cd /sourceutility
-mkdir updatetemp
-cd updatetemp
+if [ ! -d /sourceutility/updatetemp ]; then
+    mkdir /sourceutility/updatetemp
+fi
+
+cd /sourceutility/updatetemp
 
 curl --insecure --silent -o ./file.list https://raw.githubusercontent.com/The-Hacker894/sourceutility/master/file.list
 if [ ! -r ./file.list ]; then
@@ -47,7 +52,7 @@ echo "Completed Installation!"
 
 
 echo =====================================
-echo "Thanks for installing sourceutility 0.8.1"
+echo "Thanks for installing sourceutility 0.8.3"
 echo ""
 echo "Run sourceutility in the MobileTerminal, NewTerm2, or over SSH to access the Main Mnu"
 echo ""
