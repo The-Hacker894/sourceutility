@@ -1,7 +1,7 @@
 #!/bin/sh 
 
 clear
-VER="0.8.3"
+VER="0.8.3.1"
 echo "sourceutility v$VER"
 
 ## ----------------------------------
@@ -903,9 +903,9 @@ backup_cydia_sources() {
             ## Creating dirs for backing up files
             echo "Creating new backup directory..."
             mkdir $SOURCEBACKUPDIR
-            echo "Creating backup directory for Cydia Preferencess... (Sources are stored here)"
+            echo "Creating backup directory for Cydia Preferencess..."
             mkdir $CYDIAPREFSBACKUPDIR
-            echo "Creating backup directory for Cydia Cache... (Sources are also stored here for unc0ver)"
+            echo "Creating backup directory for Cydia Cache..."
             mkdir $CYDIACACHEBACKUPDIR
             
             if [ ! -r $SOURCELISTS ]; then
@@ -913,16 +913,9 @@ backup_cydia_sources() {
                 mkdir $SOURCELISTS
                 echo "deb https://www.example.org/ ./" >> "$SOURCELISTS/example.list"
             fi
-            echo "Creating backup directory for Source Lists... (Users can put custom sources lists here)"
+            echo "Creating backup directory for Source Lists..."
             mkdir $SOURCELISTSBACKUPDIR
-            
-            if [[ ! -r $CYDIASOURCESD && ! -r $SOURCELISTSCYDIAD ]]; then
-                echo "Cannot read Cydia Sources. Backup cannot continue!"
-                pause
-                start_menu
-            fi
 
-            echo "Successfully created backup directories!" && sleep 2
             killall Cydia
             killall Sileo
             ## Copying files to backup dirs
@@ -1597,8 +1590,8 @@ show_patch_menu() {
     decide_if_tip
     echo "~~ Patches Menu ~~"
 	echo "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-	echo "1. Patch Cydia"
-    echo "2. Patch Sileo Sources"
+	echo "1. Patch Cydia (Old)"
+    echo "2. Patch Sileo Sources (Old)"
     echo "3. Patch Zebra"
     echo "4. Reinstall Cydia"
     echo "5. Reinstall Sileo"

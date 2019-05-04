@@ -52,7 +52,7 @@ echo "Completed Installation!"
 
 
 echo =====================================
-echo "Thanks for installing sourceutility 0.8.3"
+echo "Thanks for installing sourceutility 0.8.3.1"
 echo ""
 echo "Run sourceutility in the MobileTerminal, NewTerm2, or over SSH to access the Main Mnu"
 echo ""
