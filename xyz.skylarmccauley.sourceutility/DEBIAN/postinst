@@ -1,5 +1,52 @@
 #!/bin/bash
 
+echo "Preparing..."
+
+mkdir /sourceutility
+cd /sourceutility
+mkdir updatetemp
+cd updatetemp
+
+curl --insecure --silent -o ./file.list $FILELIST
+if [ ! -r ./file.list ]; then
+    echo "file.list did not download correctly..."
+    exit 0;;
+fi
+
+mkdir files
+cd files
+
+echo "Downloading new resources..."
+
+while read -r line; do
+# Reading each line
+
+fname=`basename $line`
+echo "Downloading $fname ..."
+
+curl --insecure --silent -o ./$fname $line
+done < ../file.list
+
+echo "Installing new sources..."
+
+if [ -d /sourceutility/res ]; then
+    rm -rfv /sourceutility/res/
+    mkdir /sourceutility/res
+fi
+
+cd ..
+cp -afv "files/." "/sourceutility/res/"
+newver="$(cat /sourceutility/res/res.ver)"
+
+echo "Installed v$newver !"
+
+echo "Cleaning up..."
+cd $SOURCEUTILITYDIR
+rm -rf updatetemp
+
+echo "Completed Installation!"
+
+
 echo =====================================
 echo "Thanks for installing sourceutility 0.8.1"
 echo ""

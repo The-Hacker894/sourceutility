@@ -527,6 +527,9 @@ update_resources() {
 
     check_connection $FILELIST
 
+    if [ ! -d $SOURCEUTILITYDIR ]; then
+        mkdir $SOURCEUTILITYDIR
+    fi
     cd $SOURCEUTILITYDIR
     mkdir updatetemp
     cd updatetemp
