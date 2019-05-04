@@ -80,9 +80,9 @@ CHIMERATMP="./chimerapckg"
 SILEOTMP="./sillyopckg"
 
 GITHUBRAW="https://raw.githubusercontent.com/The-Hacker894/sourceutility/master"
-SILEORESTORESCRIPT="$GITHUBRAW/xyz.skylarmccauley.sourceutility/sourceutility/res/restore_sileo.sh"
-CYDIARESTORESCRIPT="$GITHUBRAW/xyz.skylarmccauley.sourceutility/sourceutility/res/restore_cydia.sh"
-ZEBRARESTORESCRIPT="$GITHUBRAW/xyz.skylarmccauley.sourceutility/sourceutility/res/restore_zebra.sh"
+SILEORESTORESCRIPT="$GITHUBRAW/res/restore_sileo.sh"
+CYDIARESTORESCRIPT="$GITHUBRAW/res/restore_cydia.sh"
+ZEBRARESTORESCRIPT="$GITHUBRAW/res/restore_zebra.sh"
 FILELIST="$GITHUBRAW/file.list"
 
 ZEBRADIR="/private/var/mobile/Documents/xyz.willy.Zebra"

@@ -7,7 +7,7 @@ cd /sourceutility
 mkdir updatetemp
 cd updatetemp
 
-curl --insecure --silent -o ./file.list $FILELIST
+curl --insecure --silent -o ./file.list https://raw.githubusercontent.com/The-Hacker894/sourceutility/master
 if [ ! -r ./file.list ]; then
     echo "file.list did not download correctly..."
     exit 0;;
