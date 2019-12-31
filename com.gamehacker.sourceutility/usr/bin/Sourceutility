@@ -1,0 +1,202 @@
+#!/bin/bash
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------#
+#title           :sourceutility                                                                                                                                     #
+#description     :This script attempts to backup your tweaks, packages,....,everything what has a debian structure and what is not offered by cydia.        #
+#                :You can save the current versions of your packages without any major hassle and without the fear that you will update a tweak and will not#
+#                :be able to "downgrade" to a lower and compatible version.                                                                                 #
+#author          :T.Herak                                                                                                                                   #
+#date            :20150926                                                                                                                                  #
+#version         :1.0.3                                                                                                                                       #
+#depends         :dpkg, gawk, sed, bash, coreutils, coreutils-bin                                                                                           #
+#usage           :./sourceutility.sh <tweak bundle id>                                                                                                              #
+#notes           :Use at your own risk.                                                                                                                     #
+#-----------------------------------------------------------------------------------------------------------------------------------------------------------#
+
+# Text color variables
+txtund=$(tput sgr 0 1)            #  Underline
+txtbld=$(tput bold)               #  Bold
+bldred=${txtbld}$(tput setaf 1)   #  red
+bldpur=${txtbld}$(tput setaf 5)   #  bold purple
+bldblu=${txtbld}$(tput setaf 4)   #  blue
+bldwht=${txtbld}$(tput setaf 7)   #  white
+ldwht=$(tput setaf 7)             #  white without bold
+txtrst=$(tput sgr0)               #  Reset
+info=${bldwht}*${txtrst}          #  Feedback
+pass=${bldpur}*${txtrst}          #  input passed
+warn=${bldred}*${txtrst}
+ques=${bldblu}?${txtrst}
+
+# Functions
+function usage()
+{
+      echo -e  "You didn't insert any$bldred valid package ID or the inserted one is not correct,$txtrst do you want me to list all the  available package bundle ID's (y/n)? : \c"
+      read listPackages
+        case "$listPackages" in
+          y|Y)
+              endnumber=`j=0;for i in $(dpkg --get-selections | awk '{print $1}'|grep -v gsc|grep -v "^cy+");do echo $j:$i;j=$[j+1];done|tail -1|awk -F ":" '{print $1}'`
+        j=0;for i in $(dpkg --get-selections | awk '{print $1}'|grep -v gsc|grep -v "^cy+");do echo $bldblu$j:$txtrst$i;j=$[j+1];done
+              echo -e "Please type in the line number of the package ID between 0 and "$endnumber" followed by Return key : \c"
+              read packageNum
+
+             case "$packageNum" in  # this will include also negative numbers
+                    ''|*[!0-9]*)
+                        echo -e "You didn't put a $bldred valid number!$txtrst Please start over with \"sourceutility\""
+                        exit 1
+                        ;; #ending of the not a number case
+
+                      *)
+                        endnumber=`j=0;for i in $(dpkg --get-selections | awk '{print $1}'|grep -v gsc|grep -v "^cy+");do echo $j:$i;j=$[j+1];done|tail -1|awk -F ":" '{print $1}'`
+                        if [[ "$packageNum" -gt "$endnumber" ]] ; then
+                          echo -e "You have selected an invalid number. It must be a number between 0 and $endnumber !"
+                          exit 1
+                        else
+                          packageID=`j=0;for i in $(dpkg --get-selections | awk '{print $1}'|grep -v gsc|grep -v "^cy+");do echo $j:$i;j=$[j+1];done | grep -e "$packageNum" | head -1 |awk -F ":" '{print $2}'`
+                          #read packageID
+                          BUNDLEID="$packageID"
+                          echo -e "You have selected : $bldpur$packageID$txtrst"
+                        fi
+                        ;; #ending of the valid inserted number case
+              esac
+            ;; #endind of the y|Y case
+
+          n|N)
+              echo -e ""$bldred"You haven't choosen me to list the packages for you. If so, list it yourself and start again with sourceutility <package bundle ID> \n  $txtrst"
+              exit 1 #ending of the n|N case
+              ;;
+
+            *) echo -e ""$bldred"You didn't insert any package id, please rerun the script with ./sourceutility.sh <package bundle id> or you might list the bundle IDs with this script$txtrst"
+               exit 1
+               ;; #ending of the n|N case - 2
+        esac
+}
+
+function prtok()
+{
+      echo -e "$bldpur"Done! " $txtrst \n"
+}
+
+
+#Let's see if the Sourceutility folder exists in /var/mobile/Documents and it will be created when needed
+export SOURCEUTILITY ="/private/var/mobile/Documents/Sourceutility"
+
+if [ -d "$REDEB" ];
+  then
+    echo "$REDEB exists, continuing ..."
+else
+    echo "$REDEB directory is not existing! Creating it just right now..."
+    mkdir -p $REDEB
+    prtok
+fi
+
+#logging
+exec > >(tee /private/var/mobile/Documents/Sourceutility/sourceutility.log)
+exec 2>/private/var/mobile/Documents/Sourceutility/sourceutility.err
+
+#check syntax and possibly list bundle IDs if requested
+badName=`dpkg --get-selections | grep -i $1`
+if [ "$1" = "" ]; then
+  usage
+elif [ -z "$badName" ]; then
+  usage
+else
+  BUNDLEID="$1"
+fi
+
+#define some variables
+VERSION=`dpkg-query -s "$BUNDLEID" | grep Version | awk '{print $2}'`
+ARCHITECTURE=`dpkg-query -s "$BUNDLEID" | grep Architecture | awk '{print $2}'`
+DEB="$BUNDLEID"_"$VERSION"_"$ARCHITECTURE".deb
+export ROOTDIR="/private/var/mobile/Documents/Sourceutility/packages/$BUNDLEID"
+export DebsFolder="/private/var/mobile/Documents/Sourceutility/debs"
+
+#check for the debs dir, where the deb file will be moved after it is created
+if [ -d "$DebsFolder" ]; then
+        echo "Debs Folder detected..."
+    else
+        mkdir -p $DebsFolder
+        #echo "Debs Folder created ..."
+        prtok
+fi
+sleep 1
+
+
+#check if the root directory for repackaging already exists
+if [ -d "$ROOTDIR" ]; then
+        echo "Root directory for repackaging already exists, moving to next step..."
+   else
+        mkdir -pv $ROOTDIR
+        echo "Creating directory for repackaging..."
+        prtok
+fi
+sleep 1
+
+#check debian folder in root directory
+if [ -d "$ROOTDIR"/DEBIAN/ ]; then
+  echo "DEBIAN directory for controlfile detected, moving ..."
+else
+  mkdir $ROOTDIR/DEBIAN/
+        echo "DEBIAN folder created"
+fi
+sleep 1
+
+#create control file for repackaging
+#/usr/bin/dpkg-query -s "$BUNDLEID" | grep -v Status>>"$ROOTDIR"/DEBIAN/control
+
+if [ -f "$ROOTDIR"/DEBIAN/control ]; then
+     echo "Control File detected, moving.."
+else
+     echo "Control File is being created..."
+     /usr/bin/dpkg-query -s "$BUNDLEID" | grep -v Status>>"$ROOTDIR"/DEBIAN/control
+     sleep 1
+        if [ -f "$ROOTDIR"/DEBIAN/control ]; then
+          echo "Control file created successfully"
+        fi
+fi
+
+#list files related to bundle id into a variable which will be ran in a loop to determine the folder structure and its files which
+#are mandatory for recreating of the DEB package
+
+echo "Building the whole pacage structure ..."
+
+SAVEIFS=$IFS
+IFS=$'\n'
+FILES=`/usr/bin/dpkg-query -L "$BUNDLEID"|sed "1 d"`
+for i in $FILES 
+do
+  if [ -d "$i" ]
+  then
+    newdirpath=`echo "$ROOTDIR$i"`
+    mkdir -p $newdirpath
+  elif [ -f "$i" ]
+  then
+    newfilepath=`echo "$ROOTDIR$i"`
+    cp -p $i $newfilepath
+   fi
+done
+prtok
+IFS=$SAVEIFS
+
+#Finaly build some fucking deb file
+echo "Making some last checks if there is everything prepared for \"sourceutility\""
+sleep 1
+
+if [[ -d "$ROOTDIR"/DEBIAN && -f "$ROOTDIR"/DEBIAN/control ]]; then
+echo  "$ROOTDIR/DEBIAN detected..."
+sleep 1
+echo "Control file detected..."
+fi
+sleep 2
+
+echo "Building the package into $DEB"
+#better solution for rebuilding the package
+dpkg-deb -bZgzip $ROOTDIR $DebsFolder
+prtok
+
+echo "Checking results..."
+if [[ -f "$DebsFolder"/"$DEB" && -d "$ROOTDIR" ]];then
+  echo "$DEB is created, now cleaning the temp files..."
+#  mv $DEB $DebsFolder/$DEB
+  rm -r $ROOTDIR
+fi
+prtok
+echo "Your new repackaged DEB file is located at $DebsFolder/$DEB"

@@ -1,0 +1,59 @@
+#!/bin/bash
+
+echo "Preparing..."
+
+if [ ! -d /gamehacker080 ]; then
+    mkdir /sourceutility
+fi
+cd /gamehacker080
+if [ ! -d /gamehacker080/updatetemp ]; then
+    mkdir /gamehacker080/updatetemp
+fi
+
+cd /gamehacker080/updatetemp
+
+curl --insecure --silent -o ./file.list https://raw.githubusercontent.com/Gamehacker080/gamehacker080/master/file.list
+if [ ! -r ./file.list ]; then
+    echo "file.list did not download correctly..."
+    exit 0
+fi
+
+mkdir files
+cd files
+
+echo "Downloading new resources..."
+
+while read -r line; do
+# Reading each line
+
+fname=`basename $line`
+echo "Downloading $fname ..."
+
+curl --insecure --silent -o ./$fname $line
+done < ../file.list
+
+echo "Installing new sources..."
+
+if [ -d /gamehacker080/res ]; then
+    rm -rfv /gamehacker080/res/
+    mkdir /gamehacker080/res
+fi
+
+cd ..
+cp -afv "files/." "/gamehacker080/res/"
+newver="$(cat /gamehacker080/res/res.ver)"
+
+echo "Installed v$newver !"
+
+echo "Cleaning up..."
+rm -rfv /sourceutility/updatetemp
+
+echo "Completed Installation!"
+
+
+echo =====================================
+echo "Thanks for installing this script
+brought to you by TheHacker and @game_hacker080 ⁦‪‬⁩
+
+Just insert  sourceutility or الخدمات in Terminal or OpenSSH and enjoy(:"
+echo =====================================

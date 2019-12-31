@@ -1,0 +1,12 @@
+Package: com.gamehacker.sourceutility
+Name: sourceutility
+Version: 1.0
+Depends: firmware (>= 11.0), findutils, curl, grep, rsync, gawk, zip, unzip
+Architecture: iphoneos-arm
+Description: The all-in-one utility for managing your already added Cydia and Sileo sources. Run sourceutility in MobileTerminal, NewTerm2, or over SSH.
+Maintainer: @game_hacker080,TheHacker
+Homepage: https://twitter.com/game_hacker080
+Homepage2: https://skylarmccauley.xyz
+Depiction: The all-in-one utility for managing your already added Cydia and Sileo sources. Run sourceutility in MobileTerminal, NewTerm2, or over SSH.
+Author: @game_hacker080,TheHacker
+Section: Utilities
